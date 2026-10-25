@@ -9,11 +9,31 @@ import { FocusFirstError } from "@/components/focus-error";
 import { Button, Field, inputClass } from "@/components/ui";
 import { saveProfile, type ProfileState } from "./actions";
 
+/** Scales an image down to at most 512 px and re-encodes it as WebP. Returns null if the browser cannot decode it. */
+async function kecilkan(file: File): Promise<File | null> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const skala = Math.min(1, 512 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * skala);
+    canvas.height = Math.round(bmp.height * skala);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.85));
+    // Safari cannot encode WebP and silently returns PNG, so name the file after what we actually got.
+    const ext = blob?.type === "image/webp" ? "webp" : blob?.type === "image/png" ? "png" : null;
+    return blob && ext ? new File([blob], `${file.name.replace(/\.\w+$/, "")}.${ext}`, { type: blob.type }) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function ProfileForm({ name, gender, email, avatarPath }: { name: string | null; gender: Gender; email: string; avatarPath: string | null }) {
   const [state, action, pending] = useActionState<ProfileState, FormData>(saveProfile, {});
   const [preview, setPreview] = useState<string | null>(null);
   const [currentGender, setCurrentGender] = useState<Gender>(gender);
   const [remove, setRemove] = useState(false);
+  const [menyiapkan, setMenyiapkan] = useState(false);
   const err = (f: ProfileState["field"]) => (state.field === f ? state.error : undefined);
 
   useEffect(() => () => {
@@ -50,15 +70,26 @@ export function ProfileForm({ name, gender, email, avatarPath }: { name: string 
               className="sr-only"
               aria-invalid={!!err("photo")}
               aria-describedby={err("photo") ? "photo-error" : "photo-help"}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                setPreview(f ? URL.createObjectURL(f) : null);
-                if (f) setRemove(false);
+              onChange={async (e) => {
+                const input = e.currentTarget;
+                const f = input.files?.[0];
+                if (!f) return setPreview(null);
+                setRemove(false);
+                setMenyiapkan(true);
+                // Phone photos are often several MB: shrink to a 512 px WebP so the upload always fits the 2 MB limit.
+                const kecil = await kecilkan(f);
+                setMenyiapkan(false);
+                if (kecil) {
+                  const dt = new DataTransfer();
+                  dt.items.add(kecil);
+                  input.files = dt.files;
+                }
+                setPreview(URL.createObjectURL(kecil ?? f));
               }}
             />
           </label>
           <p id="photo-help" className="text-sm text-muted-foreground">
-            PNG, JPG, atau WebP, maksimal 2 MB. Tanpa foto, gambar bawaan sesuai jenis kelamin yang ditampilkan.
+            {menyiapkan ? "Menyiapkan foto…" : "PNG, JPG, atau WebP. Foto besar otomatis dikecilkan. Tanpa foto, gambar bawaan sesuai jenis kelamin yang ditampilkan."}
           </p>
           {avatarPath && !preview && (
             <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm ">
@@ -120,7 +151,7 @@ export function ProfileForm({ name, gender, email, avatarPath }: { name: string 
       </Field>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || menyiapkan}>
           {pending ? "Menyimpan…" : "Simpan profil"}
         </Button>
         <div aria-live="polite">

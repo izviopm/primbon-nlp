@@ -15,8 +15,13 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getClaims();
   const isLogin = request.nextUrl.pathname.startsWith("/login");
+  // getUser() in lib/auth.ts sends a stale session (user deleted) here: clear it instead of bouncing back to /.
+  if (isLogin && request.nextUrl.searchParams.has("keluar")) {
+    await supabase.auth.signOut({ scope: "local" });
+    return response;
+  }
+  const { data } = await supabase.auth.getClaims();
   if (!data?.claims && !isLogin) {
     // API callers (the chat) need a status code, not an HTML login page.
     if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ error: "Silakan masuk dulu." }, { status: 401 });

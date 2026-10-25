@@ -6,6 +6,7 @@ import { getUser } from "@/lib/auth";
 export type ProfileState = { error?: string; field?: "name" | "gender" | "photo"; message?: string };
 
 const PHOTO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+const EXT_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp" };
 const MAX_PHOTO = 2 * 1024 * 1024;
 
 /** Name, gender, and photo. The photo goes to avatars/<user id>/ (storage RLS only allows the user's own folder). */
@@ -22,12 +23,14 @@ export async function saveProfile(_prev: ProfileState, form: FormData): Promise<
 
   let nextPath = avatarPath;
   if (photo instanceof File && photo.size > 0) {
-    const ext = PHOTO_TYPES[photo.type];
-    if (!ext) return { error: "Gunakan gambar PNG, JPG, atau WebP", field: "photo" };
-    if (photo.size > MAX_PHOTO) return { error: "Ukuran foto maksimal 2 MB", field: "photo" };
+    // Some browsers send an empty or generic type; fall back to the file extension.
+    const type = PHOTO_TYPES[photo.type] ? photo.type : EXT_TYPES[photo.name.split(".").pop()?.toLowerCase() ?? ""];
+    const ext = type && PHOTO_TYPES[type];
+    if (!ext) return { error: `Gunakan gambar PNG, JPG, atau WebP (terbaca: ${photo.type || "tanpa tipe"})`, field: "photo" };
+    if (photo.size > MAX_PHOTO) return { error: `Ukuran foto maksimal 2 MB (fotomu ${(photo.size / 1024 / 1024).toFixed(1)} MB)`, field: "photo" };
     // New file name each time so browsers and CDNs never show the old photo from cache.
     nextPath = `${id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(nextPath, photo, { contentType: photo.type });
+    const { error } = await supabase.storage.from("avatars").upload(nextPath, photo, { contentType: type });
     if (error) return { error: `Foto gagal diunggah: ${error.message}`, field: "photo" };
   } else if (removePhoto) {
     nextPath = null;

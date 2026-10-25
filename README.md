@@ -60,7 +60,7 @@ Aturan produksi lengkap, rumus, dan tabel data ada di [`PRD.md`](./PRD.md) bagia
 - Chat primbon dengan 5 tipe kalimat dan panel tahapan.
 - Normalizer AI untuk kalimat bebas, dengan pertanyaan lanjutan ("kalau sama rabu pon?").
 - Tanya Mbah: AI yang menjelaskan cara kerja project.
-- Halaman login dengan demo beranimasi: satu kalimat berjalan melewati keempat tahap.
+- Halaman login dengan panduan langkah demi langkah (bisa maju-mundur): satu kalimat contoh melewati keempat tahap, untuk kalimat baku maupun kalimat bebas yang dirapikan AI.
 - Semua fitur wajib login. Ada akun **tamu** (username `tamu`, password `tamu`) dengan kuota AI kecil yang dipakai bersama, untuk dosen dan teman yang ingin mencoba.
 - Admin: kelola user, AI (Base URL, API key, model utama dan cadangan), limit harian, kill switch, dan statistik rule-based vs AI.
 - My profile: nama, foto, ganti password.

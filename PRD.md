@@ -287,7 +287,7 @@ Untuk dosen dan teman sekelas yang ingin mencoba saat presentasi tanpa dibuatkan
 | Route | Isi |
 |---|---|
 | `/` | Chat Primbon: hero singkat, chip contoh untuk 5 tipe kalimat, area chat, dan panel tahapan |
-| `/login` | Penjelasan singkat dan **demo beranimasi** (satu kalimat berjalan melewati Scanner, Parser, Translator, Evaluator, termasuk contoh kalimat bebas yang dirapikan AI; bisa dijeda, statis saat reduced motion), lalu login email (atau username `tamu`) dan password, plus tombol **Masuk sebagai Tamu** |
+| `/login` | **Panduan langkah demi langkah** "Cara Mbah menjawab": satu kalimat contoh melewati Pertanyaan → (Normalizer AI) → Scanner → Parser → Translator → Evaluator → Jawaban, dengan tombol Sebelumnya/Berikutnya, titik langkah yang bisa diklik, tombol panah keyboard, dan pilihan contoh kalimat baku atau kalimat bebas (AI); isinya output asli mesin. Di mobile ada tautan "Langsung masuk", lalu login email (atau username `tamu`) dan password, plus tombol **Masuk sebagai Tamu** |
 | `/akun` | My profile |
 | `/admin` | Tab: Users, AI settings, Limits, Statistik |
 

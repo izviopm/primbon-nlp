@@ -1,20 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Cog, Eye, EyeOff, MessagesSquare, Sparkles, UserRound } from "lucide-react";
+import { Eye, EyeOff, UserRound } from "lucide-react";
 import { motion } from "motion/react";
 import { FocusFirstError } from "@/components/focus-error";
 import { AKSARA_PRIMBON, Aksara, Gunungan } from "@/components/jawa";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion";
+import { Reveal } from "@/components/motion";
 import { Button, Card, Field, focus, inputClass } from "@/components/ui";
 import { signIn, type LoginState } from "./actions";
-import { DemoTahapan } from "./demo-tahapan";
-
-const POIN = [
-  { icon: MessagesSquare, judul: "Tanya bebas", isi: "Weton, neptu, jodoh, tanggal, atau watak, dengan bahasa sehari-hari." },
-  { icon: Cog, judul: "Rule-based menjawab", isi: "Semua hitungan lewat Scanner, Parser, Translator, dan Evaluator." },
-  { icon: Sparkles, judul: "AI membantu", isi: "Hanya merapikan kalimat yang terlalu bebas, tidak pernah menghitung.", ai: true },
-];
+import { Panduan } from "./panduan";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState<LoginState, FormData>(signIn, {});
@@ -36,24 +30,14 @@ export default function LoginPage() {
           <p className="text-lg text-foreground/90">
             Tanya weton, neptu, dan kecocokan jodoh dengan bahasa sehari-hari. Mbah menjawab lewat <strong>mesin penterjemah rule-based</strong>, bukan tebakan.
           </p>
-          <DemoTahapan />
-          <Stagger as="ul" className="grid gap-2 sm:grid-cols-3">
-            {POIN.map(({ icon: Icon, judul, isi, ai }) => (
-              <StaggerItem as="li" key={judul} className="flex items-start gap-3 rounded-2xl border bg-card/80 p-3 shadow-sm sm:flex-col sm:gap-2">
-                <span className={`inline-flex size-9 shrink-0 items-center justify-center rounded-xl ${ai ? "bg-nila-soft text-nila" : "bg-primary-soft text-primary"}`}>
-                  <Icon aria-hidden="true" className="size-5" />
-                </span>
-                <span className="flex flex-col">
-                  <span className="font-semibold">{judul}</span>
-                  <span className="text-sm text-muted-foreground">{isi}</span>
-                </span>
-              </StaggerItem>
-            ))}
-          </Stagger>
+          <a href="#masuk" className={`self-start rounded-lg text-sm font-semibold text-primary underline underline-offset-4 lg:hidden ${focus}`}>
+            Langsung masuk
+          </a>
+          <Panduan />
         </Reveal>
       </section>
 
-      <section className="flex items-center justify-center px-4 py-10 sm:py-16">
+      <section id="masuk" className="flex scroll-mt-4 items-center justify-center px-4 py-10 sm:py-16">
         <Reveal className="flex w-full max-w-md flex-col gap-6" delay={0.08}>
           <div className="flex flex-col gap-1">
             <h2 className="font-serif text-2xl font-bold sm:text-3xl">Sugeng rawuh</h2>
