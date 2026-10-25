@@ -70,6 +70,25 @@ export async function setRole(_p: AdminState, form: FormData): Promise<AdminStat
   return done("Peran disimpan");
 }
 
+/** Per-user AI limit: a number, unlimited, or empty (back to the role default). Admins are always unlimited. */
+export async function saveUserLimit(_p: AdminState, form: FormData): Promise<AdminState> {
+  const { id: adminId } = await requireAdmin();
+  const userId = String(form.get("userId") ?? "");
+  const unlimited = form.get("unlimited") === "on";
+  const calls = intOrNull(form.get("calls"));
+  if (!userId) return { error: "User tidak dikenal" };
+  if (Number.isNaN(calls)) return { error: "Limit harus bilangan bulat 0 atau lebih (kosongkan untuk memakai default)" };
+  const db = createAdminClient();
+  const { data: p } = await db.from("profiles").select("role").eq("id", userId).single();
+  if (p?.role === "admin") return { error: "Admin selalu unlimited." };
+  const { error } =
+    !unlimited && calls === null
+      ? await db.from("user_limits").delete().eq("user_id", userId)
+      : await db.from("user_limits").upsert({ user_id: userId, ai_calls_per_day: calls, unlimited, set_by: adminId, updated_at: new Date().toISOString() });
+  if (error) return { error: error.message };
+  return done(unlimited ? "Diberi akses AI unlimited" : calls === null ? "Kembali ke limit default" : `Limit disimpan: ${calls} panggilan per hari`);
+}
+
 type Model = { id: string; name: string };
 
 export async function saveAiSettings(_p: AdminState, form: FormData): Promise<AdminState> {

@@ -266,7 +266,7 @@ Setiap balon jawaban memiliki label:
 |---|---|
 | `guest` (akun Tamu) | Chat Primbon lengkap (rule-based, Normalizer AI, Tanya Mbah) dengan **kuota AI kecil**. My profile hanya bisa dilihat, tidak bisa diubah |
 | `user` | Chat Primbon dengan kuota AI normal. Bisa mengubah **My profile** dan password |
-| `admin` | Semua di atas tanpa limit per user, ditambah mendaftarkan dan mengelola user, mengatur AI (Base URL, API key, model utama dan cadangan), mengatur limit, dan melihat statistik |
+| `admin` | Semua di atas dengan AI **unlimited** (tidak terkena limit per user maupun batas global), ditambah mendaftarkan dan mengelola user, mengatur AI (Base URL, API key, model utama dan cadangan), mengatur limit, dan melihat statistik |
 
 - Tidak ada pendaftaran mandiri. Akun dibuat admin, seperti Goukaku.
 - **My profile** (`/akun`): nama, jenis kelamin, email (hanya baca), foto profil (PNG/JPG/WebP maks 2 MB, atau avatar default sesuai jenis kelamin), dan ganti password.
@@ -309,7 +309,8 @@ Chat selalu satu kolom bersih di tengah. Panel dibuka lewat tombol "Lihat tahapa
 
 - **Users**: buat akun (nama, jenis kelamin, email, password), reset password, ubah peran. Diambil dari Goukaku.
 - **AI settings**: Base URL, API key (hanya bisa ditimpa, tidak pernah ditampilkan, cukup indikator "tersimpan"), model utama, model cadangan (urutan bisa diubah), tombol **Ambil daftar model** (`GET {baseUrl}/models`), dan tombol **Tes koneksi**.
-- **Limits**: batas panggilan AI per user per hari, batas akun tamu per hari (bersama), batas global per hari, dan kill switch AI.
+- **Limits**: default panggilan AI per user per hari, default akun tamu per hari (bersama), batas global per hari, dan kill switch AI.
+- **Limit per pengguna** (tab Pengguna): admin bisa memberi limit khusus (angka per hari) atau **Unlimited** ke user mana pun, termasuk akun tamu. Dikosongkan berarti kembali ke default. Setiap pengguna menampilkan pemakaian hari ini dan limit efektifnya.
 - **Statistik**: jumlah pertanyaan per hari, dibagi menurut sumber (rule-based langsung, dibantu AI, Tanya Mbah, gagal), serta 20 kalimat gagal terakhir. Data ini berguna untuk memperluas kamus sinonim dan untuk slide presentasi ("X% dijawab rule-based tanpa AI").
 
 ## 9. Skema data (Supabase)
@@ -334,6 +335,7 @@ app_settings    key, value jsonb
                 -- 'ai_models': daftar model cadangan berurutan [{id, name}]
                 -- 'limits': {per_user_per_day, guest_per_day, global_per_day, ai_enabled}
 ai_usage        user_id, day, calls, primary key (user_id, day)
+user_limits     user_id pk, ai_calls_per_day (null = default peran), unlimited bool, set_by, updated_at
 
 -- Statistik
 query_logs      id, user_id, created_at, input text,
@@ -349,7 +351,7 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - `primbon_weton(p_tanggal)`
 - `primbon_kapan(p_hari, p_pasaran, p_mulai, p_selesai)`
 - `primbon_watak(p_hari, p_pasaran, p_tanggal)`
-- `consume_ai_quota(p_user_id)`: cek kill switch, limit sesuai peran (`guest_per_day` untuk tamu, `per_user_per_day` untuk user), dan limit global, lalu menambah `ai_usage` secara atomik. Admin tidak terkena limit per user, tetapi tetap terkena limit global.
+- `consume_ai_quota(p_user_id)`: secara atomik, urutannya: kill switch (berlaku untuk semua) → admin lolos tanpa limit → batas global (dihitung dari pemakaian non-admin) → user `unlimited` lolos dari limit per user → limit khusus di `user_limits` → default peran (`guest_per_day` / `per_user_per_day`). Lalu menambah `ai_usage`.
 - `set_ai_api_key(p_key)` dan `get_ai_api_key()`: disalin dari Goukaku. `get_ai_api_key` hanya bisa dipanggil `service_role`.
 
 ### RLS
@@ -357,7 +359,7 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - Semua tabel memakai RLS.
 - `hari`, `pasaran`, `jodoh`, `watak`: `SELECT` untuk `authenticated`. Tidak ada policy tulis.
 - `profiles`: user membaca dan mengubah baris miliknya (kecuali `role`; tamu tidak bisa mengubah sama sekali). Admin membaca semua.
-- `ai_settings`, `app_settings`, `ai_usage`, `query_logs`: hanya admin (baca), penulisan lewat server dengan service role.
+- `ai_settings`, `app_settings`, `user_limits`, `ai_usage`, `query_logs`: hanya admin (baca), penulisan lewat server dengan service role.
 - Panggilan AI hanya dari server (Route Handler / Server Action). API key tidak pernah dikirim ke browser.
 
 ## 10. API
