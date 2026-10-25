@@ -138,7 +138,7 @@ export default async function AdminPage() {
         <Field id="guest" label="Default panggilan AI akun tamu per hari" help="Dipakai bersama oleh semua pengunjung tamu.">
           <input id="guest" name="guest" type="number" inputMode="numeric" min={0} defaultValue={limits.guest_per_day ?? ""} className={inputClass} aria-describedby="guest-help" />
         </Field>
-        <Field id="global" label="Batas global per hari" help="Total semua pengguna selain admin, termasuk yang unlimited. Pengaman biaya API key.">
+        <Field id="global" label="Batas global per hari" help="Total pemakaian pengguna biasa (selain admin dan yang unlimited). Pengaman biaya API key.">
           <input id="global" name="global" type="number" inputMode="numeric" min={0} defaultValue={limits.global_per_day ?? ""} className={inputClass} aria-describedby="global-help" />
         </Field>
         <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3">
@@ -237,7 +237,7 @@ export default async function AdminPage() {
                         <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 has-[:checked]:border-nila has-[:checked]:bg-nila-soft">
                           <input type="checkbox" name="unlimited" defaultChecked={lim.unlimited} className="size-5 accent-nila" />
                           <span className="font-medium">Unlimited</span>
-                          <span className="text-sm text-muted-foreground">(tetap dibatasi batas global)</span>
+                          <span className="text-sm text-muted-foreground">(bebas limit harian dan batas global)</span>
                         </label>
                       </ActionForm>
                       {bisaKelolaAkun && (

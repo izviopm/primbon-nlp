@@ -266,7 +266,7 @@ Setiap balon jawaban memiliki label:
 |---|---|
 | `guest` (akun Tamu) | Chat Primbon lengkap (rule-based, Normalizer AI, Tanya Mbah) dengan **kuota AI kecil**. My profile hanya bisa dilihat, tidak bisa diubah |
 | `user` | Chat Primbon dengan kuota AI normal. Bisa mengubah **My profile** dan password |
-| `admin` | Semua di atas dengan AI **unlimited** (tidak terkena limit per user maupun batas global), ditambah mendaftarkan dan mengelola user, mengatur AI (Base URL, API key, model utama dan cadangan), mengatur limit, dan melihat statistik |
+| `admin` | Semua di atas dengan AI **unlimited** (tidak terkena limit per user maupun batas global, dan tidak dihitung ke batas global), ditambah mendaftarkan dan mengelola user, mengatur AI (Base URL, API key, model utama dan cadangan), mengatur limit, dan melihat statistik |
 
 - Tidak ada pendaftaran mandiri. Akun dibuat admin, seperti Goukaku.
 - **My profile** (`/akun`): nama, jenis kelamin, email (hanya baca), foto profil (PNG/JPG/WebP maks 2 MB, atau avatar default sesuai jenis kelamin), dan ganti password.
@@ -351,7 +351,7 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - `primbon_weton(p_tanggal)`
 - `primbon_kapan(p_hari, p_pasaran, p_mulai, p_selesai)`
 - `primbon_watak(p_hari, p_pasaran, p_tanggal)`
-- `consume_ai_quota(p_user_id)`: secara atomik, urutannya: kill switch (berlaku untuk semua) → admin lolos tanpa limit → batas global (dihitung dari pemakaian non-admin) → user `unlimited` lolos dari limit per user → limit khusus di `user_limits` → default peran (`guest_per_day` / `per_user_per_day`). Lalu menambah `ai_usage`.
+- `consume_ai_quota(p_user_id)`: secara atomik, urutannya: kill switch (berlaku untuk semua) → admin dan user `unlimited` lolos tanpa limit apa pun → batas global (dihitung hanya dari pemakaian pengguna biasa, tanpa admin dan unlimited) → limit khusus di `user_limits` → default peran (`guest_per_day` / `per_user_per_day`). Lalu menambah `ai_usage`.
 - `set_ai_api_key(p_key)` dan `get_ai_api_key()`: disalin dari Goukaku. `get_ai_api_key` hanya bisa dipanggil `service_role`.
 
 ### RLS
