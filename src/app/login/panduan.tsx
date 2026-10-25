@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, ChevronRight, Cog, Database, GitBranch, MessageSquareText, RotateCcw, ScanText, Sparkles, Trophy, Workflow, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { AnimatePresence, motion, useInView, useReducedMotion } from "motion/react";
+import { ChevronLeft, ChevronRight, Cog, Database, GitBranch, MessageSquareText, Pause, Play, RotateCcw, ScanText, Sparkles, Trophy, Workflow, type LucideIcon } from "lucide-react";
 import { Button, focus } from "@/components/ui";
 
 // Step-by-step guide on the login page (PRD 8): one sentence through every stage, with back/next.
 // The traces below are real engine output (src/lib/nlp), captured for the two example sentences.
+
+/** Seconds per step while the guide plays by itself (same idea as Goukaku's login tour). */
+const DURASI = 5;
 
 type Kelas = "KATA_TANYA" | "KATA_KUNCI" | "HARI" | "PASARAN" | "BULAN" | "ANGKA" | "PENGHUBUNG";
 type Contoh = {
@@ -214,35 +217,80 @@ const LANGKAH: Langkah[] = [
 ];
 
 export function Panduan() {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLElement>(null);
+  // On phones the guide sits above the form; only advance while it is actually on screen.
+  const terlihat = useInView(ref, { amount: 0.4 });
   const [ci, setCi] = useState(0);
   const [i, setI] = useState(0);
   const [arah, setArah] = useState(1);
+  const [main, setMain] = useState(true);
   const c = CONTOH[ci];
   const langkah = LANGKAH.filter((l) => !l.ai || c.ai);
   const l = langkah[i];
   const akhir = i === langkah.length - 1;
+  const selesai = akhir && ci === CONTOH.length - 1;
+  const otomatis = main && !reduce && terlihat && !selesai;
+
+  // Plays the standard example, then the free-sentence (AI) example, then stops on the last answer.
+  useEffect(() => {
+    if (!otomatis) return;
+    const t = setTimeout(() => {
+      setArah(1);
+      if (!akhir) setI((x) => x + 1);
+      else {
+        setCi((x) => x + 1);
+        setI(0);
+      }
+    }, DURASI * 1000);
+    return () => clearTimeout(t);
+  }, [otomatis, akhir, i, ci]);
 
   const ke = (n: number) => {
     setArah(n >= i ? 1 : -1);
     setI(Math.max(0, Math.min(langkah.length - 1, n)));
   };
-  const gantiContoh = (n: number) => {
+  /** Any manual navigation pauses autoplay, so the guide never moves away from what the user is reading. */
+  const keManual = (n: number) => {
+    setMain(false);
+    ke(n);
+  };
+  const gantiContoh = (n: number, lanjut = false) => {
     setCi(n);
     setArah(1);
     setI(0);
+    setMain(lanjut);
   };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLButtonElement && e.target.closest("[data-contoh]")) return;
-    if (e.key === "ArrowRight") ke(i + 1);
-    if (e.key === "ArrowLeft") ke(i - 1);
+    if (e.key === "ArrowRight") keManual(i + 1);
+    if (e.key === "ArrowLeft") keManual(i - 1);
   };
+  const kontrol = selesai
+    ? { label: "Putar ulang panduan", icon: RotateCcw, run: () => gantiContoh(0, true) }
+    : main
+      ? { label: "Jeda panduan", icon: Pause, run: () => setMain(false) }
+      : { label: "Putar panduan otomatis", icon: Play, run: () => setMain(true) };
 
   return (
-    <section aria-labelledby="panduan-judul" onKeyDown={onKeyDown} className="flex flex-col gap-4 rounded-3xl border border-gold/50 bg-card/90 p-4 shadow-sm backdrop-blur sm:p-5">
+    <section ref={ref} aria-labelledby="panduan-judul" onKeyDown={onKeyDown} className="flex flex-col gap-4 rounded-3xl border border-gold/50 bg-card/90 p-4 shadow-sm backdrop-blur sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="panduan-judul" className="font-serif text-lg font-semibold">
-          Cara Mbah menjawab
-        </h2>
+        <div className="flex items-center gap-1">
+          <h2 id="panduan-judul" className="font-serif text-lg font-semibold">
+            Cara Mbah menjawab
+          </h2>
+          {!reduce && (
+            <button
+              type="button"
+              onClick={kontrol.run}
+              aria-label={kontrol.label}
+              title={kontrol.label}
+              className={`inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-soft ${focus}`}
+            >
+              <kontrol.icon aria-hidden="true" className="size-4" />
+            </button>
+          )}
+        </div>
         <div data-contoh role="group" aria-label="Pilih contoh" className="flex rounded-xl bg-muted p-1">
           {CONTOH.map((x, n) => (
             <button
@@ -265,7 +313,7 @@ export function Panduan() {
           <li key={x.id} className="flex flex-1 items-center gap-1 last:flex-none">
             <button
               type="button"
-              onClick={() => ke(n)}
+              onClick={() => keManual(n)}
               aria-current={n === i ? "step" : undefined}
               aria-label={`Langkah ${n + 1}: ${x.nama}`}
               className={`inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors duration-200 ${focus} ${
@@ -282,7 +330,15 @@ export function Panduan() {
             >
               <x.icon aria-hidden="true" className="size-4" />
             </button>
-            {n < langkah.length - 1 && <span aria-hidden="true" className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${n < i ? "bg-primary" : "bg-border"}`} />}
+            {n < langkah.length - 1 && (
+              // The connector after the current step doubles as the autoplay timer.
+              <span aria-hidden="true" className="h-0.5 flex-1 overflow-hidden rounded-full bg-border">
+                {n < i && <span className="block h-full w-full bg-primary" />}
+                {n === i && otomatis && (
+                  <motion.span key={`${ci}-${i}`} className="block h-full origin-left bg-gold" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: DURASI, ease: "linear" }} />
+                )}
+              </span>
+            )}
           </li>
         ))}
       </ol>
@@ -316,12 +372,14 @@ export function Panduan() {
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t pt-3">
-        <Button type="button" variant="ghost" onClick={() => ke(i - 1)} disabled={i === 0}>
+        <Button type="button" variant="ghost" onClick={() => keManual(i - 1)} disabled={i === 0}>
           <ChevronLeft aria-hidden="true" className="size-4" /> Sebelumnya
         </Button>
-        <span className="hidden text-xs text-muted-foreground sm:inline">Tombol panah ← → juga bisa</span>
+        <span className="hidden text-xs text-muted-foreground sm:inline" aria-live="polite">
+          {otomatis ? `Lanjut otomatis tiap ${DURASI} detik` : "Tombol panah ← → juga bisa"}
+        </span>
         {akhir ? (
-          <Button type="button" variant="outline" onClick={() => (ci === 0 ? gantiContoh(1) : ke(0))}>
+          <Button type="button" variant="outline" onClick={() => (ci === 0 ? gantiContoh(1) : gantiContoh(0))}>
             {ci === 0 ? (
               <>
                 Coba kalimat bebas <ChevronRight aria-hidden="true" className="size-4" />
@@ -333,7 +391,7 @@ export function Panduan() {
             )}
           </Button>
         ) : (
-          <Button type="button" onClick={() => ke(i + 1)}>
+          <Button type="button" onClick={() => keManual(i + 1)}>
             Berikutnya <ChevronRight aria-hidden="true" className="size-4" />
           </Button>
         )}
