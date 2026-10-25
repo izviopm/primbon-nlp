@@ -18,6 +18,8 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const isLogin = request.nextUrl.pathname.startsWith("/login");
   if (!data?.claims && !isLogin) {
+    // API callers (the chat) need a status code, not an HTML login page.
+    if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ error: "Silakan masuk dulu." }, { status: 401 });
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (data?.claims && isLogin) {
