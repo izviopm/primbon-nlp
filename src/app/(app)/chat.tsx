@@ -57,6 +57,11 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   }, [pesan, sibuk]);
 
   const terpilih = pesan.find((p) => p.id === dipilih && p.peran === "mbah") as Extract<Pesan, { peran: "mbah" }> | undefined;
+  // The question a selected answer belongs to: the user message right before it.
+  const idxTerpilih = pesan.findIndex((p) => p.id === dipilih);
+  const pertanyaanTerpilih = idxTerpilih > 0 && pesan[idxTerpilih - 1].peran === "user" ? (pesan[idxTerpilih - 1] as Extract<Pesan, { peran: "user" }>).teks : undefined;
+  // The stage panel only earns its column once there is at least one answer with stages to show.
+  const adaPanel = pesan.some((p) => p.peran === "mbah" && adaJejak(p.balasan));
   // Last canonical sentence lets the Normalizer resolve follow-ups like "kalau sama rabu pon?".
   const kalimatTerakhir = [...pesan]
     .reverse()
@@ -108,10 +113,15 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl flex-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 lg:px-4">
-      {/* Chat column: its own scroll area so the input stays pinned on phones. */}
-      <section aria-label="Percakapan" className="flex h-[calc(100dvh-3.5rem-1px)] min-h-0 flex-col lg:py-4">
-        <div className="flex-1 overflow-y-auto px-4 pt-4 lg:px-0" aria-live="polite" aria-busy={sibuk}>
+    <div className={`mx-auto grid w-full max-w-6xl flex-1 lg:gap-6 lg:px-4 ${adaPanel ? "lg:grid-cols-[minmax(0,1fr)_420px]" : ""}`}>
+      {/* Chat column: its own scroll area so the input stays pinned on phones. Centered while it is the only column. */}
+      <motion.section
+        layout="position"
+        transition={easeOut}
+        aria-label="Percakapan"
+        className={`flex h-[calc(100dvh-3.5rem-1px)] min-h-0 w-full flex-col lg:py-4 ${adaPanel ? "" : "lg:mx-auto lg:max-w-3xl"}`}
+      >
+        <div className="flex-1 overflow-y-auto px-4 pt-4 [scrollbar-width:thin] lg:px-1" aria-live="polite" aria-busy={sibuk}>
           {pesan.length === 0 ? (
             <Sambutan nama={nama} isGuest={isGuest} onPilih={kirim} />
           ) : (
@@ -168,19 +178,34 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
           </div>
           <p className="mt-1.5 hidden text-xs text-muted-foreground sm:block">Enter untuk kirim, Shift+Enter untuk baris baru. {DISCLAIMER}</p>
         </form>
-      </section>
+      </motion.section>
 
-      {/* Desktop: stages beside the chat. */}
-      <aside aria-label="Tahapan mesin penterjemah" className="hidden lg:block">
-        <div className="sticky top-4 mt-4 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-gold/50 bg-card p-5 shadow-sm">
-          <JudulPanel />
-          {terpilih && adaJejak(terpilih.balasan) ? (
-            <PanelDari balasan={terpilih.balasan} />
-          ) : (
-            <p className="text-sm text-muted-foreground">Ajukan pertanyaan, lalu lihat bagaimana kalimatmu diproses tahap demi tahap di sini.</p>
-          )}
-        </div>
-      </aside>
+      {/* Desktop: stages beside the chat, sliding in with the first rule-based answer. */}
+      <AnimatePresence>
+        {adaPanel && (
+          <motion.aside
+            key="panel"
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 32 }}
+            transition={{ ...easeOut, delay: 0.1 }}
+            aria-label="Tahapan mesin penterjemah"
+            className="hidden lg:block"
+          >
+            <div className="sticky top-4 mt-4 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border border-gold/50 bg-card shadow-sm">
+              <div className="relative shrink-0 overflow-hidden border-b border-gold/40 bg-linear-to-br from-gold-soft/80 to-card px-5 pt-4 pb-3">
+                <div aria-hidden="true" className="pattern-kawung absolute inset-0 text-gold-text" />
+                <div className="relative">
+                  <JudulPanel pertanyaan={terpilih && adaJejak(terpilih.balasan) ? pertanyaanTerpilih : undefined} />
+                </div>
+              </div>
+              <div className="overflow-y-auto px-5 py-3">
+                {terpilih && adaJejak(terpilih.balasan) ? <PanelDari balasan={terpilih.balasan} /> : <RingkasTahap />}
+              </div>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       {/* Phones and tablets: the same panel in a bottom drawer. */}
       <DrawerRoot open={drawer} onOpenChange={setDrawer}>
@@ -191,7 +216,7 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
             <div className="flex items-center justify-between px-5 pt-2">
               <Dialog.Title asChild>
                 <div>
-                  <JudulPanel />
+                  <JudulPanel pertanyaan={pertanyaanTerpilih} />
                 </div>
               </Dialog.Title>
               <Dialog.Close className={`-mt-4 inline-flex size-11 cursor-pointer items-center justify-center rounded-xl hover:bg-muted ${focus}`} aria-label="Tutup tahapan">
@@ -207,18 +232,51 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   );
 }
 
-function JudulPanel() {
+function JudulPanel({ pertanyaan }: { pertanyaan?: string }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <ListTree aria-hidden="true" className="size-5 text-primary" />
-      <h2 className="font-serif text-lg font-semibold">Tahapan mesin</h2>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <h2 className="flex items-center gap-2 font-serif text-lg font-semibold">
+        <ListTree aria-hidden="true" className="size-5 text-primary" />
+        Tahapan mesin
+      </h2>
+      {pertanyaan && <p className="line-clamp-2 text-sm text-muted-foreground">“{pertanyaan}”</p>}
+    </div>
+  );
+}
+
+const TAHAP_RINGKAS = [
+  ["Scanner", "Memecah kalimat menjadi token berkelas"],
+  ["Parser", "Mencocokkan token dengan aturan R1-R14"],
+  ["Translator", "Menerjemahkan hasil parse ke SQL"],
+  ["Evaluator", "Menjalankan SQL dan menghitung jawaban"],
+];
+
+/** Shown when the selected answer has no stages (an AI-only reply): what the four stages do. */
+function RingkasTahap() {
+  return (
+    <div className="flex flex-col gap-3 py-1">
+      <p className="text-sm text-muted-foreground">Jawaban yang dipilih tidak melewati mesin. Klik “Lihat tahapan” pada jawaban berlabel Rule-based.</p>
+      <ol className="flex flex-col">
+        {TAHAP_RINGKAS.map(([nama, isi], i) => (
+          <li key={nama} className="flex gap-3 pb-3 last:pb-0">
+            <span className="flex flex-col items-center">
+              <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">{i + 1}</span>
+              {i < TAHAP_RINGKAS.length - 1 && <span aria-hidden="true" className="mt-1 w-0.5 flex-1 rounded-full bg-border" />}
+            </span>
+            <span className="flex flex-col pb-1">
+              <span className="font-semibold">{nama}</span>
+              <span className="text-sm text-muted-foreground">{isi}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
 
 function PanelDari({ balasan }: { balasan: Balasan }) {
   if (!("jejak" in balasan) || !balasan.jejak) return null;
-  return <PanelTahapan jejak={balasan.jejak} normalisasi={"normalisasi" in balasan ? balasan.normalisasi : undefined} galat={balasan.sumber === "gagal" ? balasan.pesan : undefined} />;
+  return <PanelTahapan jejak={balasan.jejak} normalisasi={"normalisasi" in balasan ? balasan.normalisasi : undefined} galat={balasan.sumber === "gagal" ? balasan.galatParser : undefined} />;
 }
 
 function Sambutan({ nama, isGuest, onPilih }: { nama: string; isGuest: boolean; onPilih: (k: string) => void }) {

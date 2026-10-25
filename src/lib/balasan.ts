@@ -10,6 +10,7 @@ export type Balasan =
   | { sumber: "rule"; jawaban: Jawaban; jejak: Jejak }
   | { sumber: "rule_ai"; jawaban: Jawaban; jejak: Jejak; normalisasi: Normalisasi }
   | { sumber: "mbah"; teks: string; model: string }
-  | { sumber: "gagal"; pesan: string; contoh?: string[]; jejak?: Jejak; normalisasi?: Normalisasi };
+  | { sumber: "gagal"; pesan: string; contoh?: string[]; jejak?: Jejak; normalisasi?: Normalisasi; galatParser?: string };
+// galatParser: why the Parser rejected the sentence, shown in the stage panel (pesan may be about AI or quota).
 
 export type PesanRiwayat = { peran: "user" | "assistant"; isi: string };

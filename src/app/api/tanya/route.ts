@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
     if (r.status === "gagal_semantik") {
       log("gagal");
-      return balas({ sumber: "gagal", pesan: r.pesan, jejak: r.jejak });
+      return balas({ sumber: "gagal", pesan: r.pesan, jejak: r.jejak, galatParser: r.pesan });
     }
 
     // 2) Gagal sintaks → Normalizer AI (satu kali percobaan).
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       if (!(e instanceof AIError)) throw e;
       log("gagal");
       const saran = e instanceof QuotaError ? "Coba pakai kalimat baku, Mbah tetap bisa jawab!" : "Pertanyaan dengan kalimat baku tetap bisa dijawab.";
-      return balas({ sumber: "gagal", pesan: `${e.message} ${saran}`, contoh: CONTOH_KALIMAT, jejak: r.jejak });
+      return balas({ sumber: "gagal", pesan: `${e.message} ${saran}`, contoh: CONTOH_KALIMAT, jejak: r.jejak, galatParser: r.pesan });
     }
     let hasil;
     try {
@@ -90,6 +90,7 @@ export async function POST(req: Request) {
         pesan: r2.status === "gagal_semantik" ? r2.pesan : "Mbah belum paham maksudnya. Coba tulis seperti contoh di bawah.",
         contoh: CONTOH_KALIMAT,
         jejak: r2.jejak,
+        galatParser: r2.pesan,
         normalisasi,
       });
     }
