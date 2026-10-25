@@ -83,7 +83,7 @@ Aturan ini wajib diikuti untuk setiap komponen dan halaman. Untuk urusan visual,
 - Mobile-first. Breakpoint: `sm` 640, `md` 768, `lg` 1024.
 - Tanpa scroll horizontal di lebar 360 px. Blok kode (SQL) boleh scroll horizontal di dalam kotaknya sendiri.
 - **Chat**: tinggi `100dvh` dikurangi header. Input menempel di bawah dengan `pb-[env(safe-area-inset-bottom)]`.
-- **Panel tahapan**: `lg` ke atas tampil di kolom kanan (sticky). Di bawah `lg`, tombol "Lihat tahapan" pada balon jawaban membuka Drawer dari bawah.
+- **Panel tahapan**: tertutup secara default supaya chat bersih. `lg` ke atas: sidebar kanan selebar 420 px (slide dari kanan, chat diberi padding kanan, tutup dengan X atau Esc). Di bawah `lg`: Drawer dari bawah. Petunjuk balon emas muncul maksimal 3 kali untuk mengenalkan tombol "Lihat tahapan".
 - Lebar konten maksimal `max-w-6xl`. Teks penjelasan maksimal sekitar 70 karakter per baris.
 
 ## 8. Interaksi dan animasi

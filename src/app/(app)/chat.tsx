@@ -31,6 +31,26 @@ const teksRiwayat = (p: Pesan): PesanRiwayat =>
     ? { peran: "user", isi: p.teks }
     : { peran: "assistant", isi: "jawaban" in p.balasan ? `${p.balasan.jawaban.judul}. ${p.balasan.jawaban.isi}` : p.balasan.sumber === "mbah" ? p.balasan.teks : p.balasan.pesan };
 
+// Coachmark that points at "Lihat tahapan" (per browser): shown for the first few answers, then never again
+// once the user has opened the stages or said they do not need it.
+const KUNCI_PETUNJUK = "primbon:petunjuk-tahapan";
+const MAKS_PETUNJUK = 3;
+type CatatanPetunjuk = { kali: number; selesai: boolean };
+function bacaPetunjuk(): CatatanPetunjuk {
+  try {
+    return { kali: 0, selesai: false, ...JSON.parse(localStorage.getItem(KUNCI_PETUNJUK) ?? "{}") };
+  } catch {
+    return { kali: 0, selesai: false };
+  }
+}
+function tulisPetunjuk(c: CatatanPetunjuk) {
+  try {
+    localStorage.setItem(KUNCI_PETUNJUK, JSON.stringify(c));
+  } catch {
+    // Private mode or blocked storage: the coachmark just shows again next time.
+  }
+}
+
 /** Tiny renderer for the AI's **bold** markdown; everything else stays plain text. */
 function TeksMbah({ teks }: { teks: string }) {
   return (
@@ -47,6 +67,8 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [dipilih, setDipilih] = useState<number | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [sidebar, setSidebar] = useState(false);
+  const [petunjuk, setPetunjuk] = useState<number | null>(null);
   const bawah = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(1);
@@ -54,14 +76,19 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
 
   useEffect(() => {
     bawah.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [pesan, sibuk]);
+  }, [pesan, sibuk, petunjuk]);
+
+  useEffect(() => {
+    if (!sidebar) return;
+    const tutup = (e: globalThis.KeyboardEvent) => e.key === "Escape" && setSidebar(false);
+    window.addEventListener("keydown", tutup);
+    return () => window.removeEventListener("keydown", tutup);
+  }, [sidebar]);
 
   const terpilih = pesan.find((p) => p.id === dipilih && p.peran === "mbah") as Extract<Pesan, { peran: "mbah" }> | undefined;
   // The question a selected answer belongs to: the user message right before it.
   const idxTerpilih = pesan.findIndex((p) => p.id === dipilih);
   const pertanyaanTerpilih = idxTerpilih > 0 && pesan[idxTerpilih - 1].peran === "user" ? (pesan[idxTerpilih - 1] as Extract<Pesan, { peran: "user" }>).teks : undefined;
-  // The stage panel only earns its column once there is at least one answer with stages to show.
-  const adaPanel = pesan.some((p) => p.peran === "mbah" && adaJejak(p.balasan));
   // Last canonical sentence lets the Normalizer resolve follow-ups like "kalau sama rabu pon?".
   const kalimatTerakhir = [...pesan]
     .reverse()
@@ -88,7 +115,14 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
       if (!res.ok || !body) throw new Error(body?.error ?? "Mbah sedang tidak bisa menjawab. Coba lagi.");
       const id = nextId.current++;
       setPesan((p) => [...p, { id, peran: "mbah", balasan: body as Balasan }]);
-      if (adaJejak(body)) setDipilih(id);
+      if (adaJejak(body)) {
+        setDipilih(id);
+        const c = bacaPetunjuk();
+        if (!c.selesai && c.kali < MAKS_PETUNJUK && !sidebar) {
+          setPetunjuk(id);
+          tulisPetunjuk({ ...c, kali: c.kali + 1 });
+        } else setPetunjuk(null);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -109,18 +143,21 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   };
   const bukaTahapan = (id: number) => {
     setDipilih(id);
-    if (!window.matchMedia("(min-width: 1024px)").matches) setDrawer(true);
+    setPetunjuk(null);
+    tulisPetunjuk({ ...bacaPetunjuk(), selesai: true });
+    if (window.matchMedia("(min-width: 1024px)").matches) setSidebar(true);
+    else setDrawer(true);
+  };
+  const cukupPetunjuk = () => {
+    setPetunjuk(null);
+    tulisPetunjuk({ ...bacaPetunjuk(), selesai: true });
   };
 
   return (
-    <div className={`mx-auto grid w-full max-w-6xl flex-1 lg:gap-6 lg:px-4 ${adaPanel ? "lg:grid-cols-[minmax(0,1fr)_420px]" : ""}`}>
-      {/* Chat column: its own scroll area so the input stays pinned on phones. Centered while it is the only column. */}
-      <motion.section
-        layout="position"
-        transition={easeOut}
-        aria-label="Percakapan"
-        className={`flex h-[calc(100dvh-3.5rem-1px)] min-h-0 w-full flex-col lg:py-4 ${adaPanel ? "" : "lg:mx-auto lg:max-w-3xl"}`}
-      >
+    // While the sidebar is open, the chat makes room for it instead of sliding underneath.
+    <div className={`flex w-full flex-1 transition-[padding] duration-300 ease-out lg:px-4 ${sidebar ? "lg:pr-[436px]" : ""}`}>
+      {/* Chat column: its own scroll area so the input stays pinned on phones. */}
+      <section aria-label="Percakapan" className="mx-auto flex h-[calc(100dvh-3.5rem-1px)] min-h-0 w-full max-w-3xl flex-col lg:py-4">
         <div className="flex-1 overflow-y-auto px-4 pt-4 [scrollbar-width:thin] lg:px-1" aria-live="polite" aria-busy={sibuk}>
           {pesan.length === 0 ? (
             <Sambutan nama={nama} isGuest={isGuest} onPilih={kirim} />
@@ -135,7 +172,10 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
                         {p.teks}
                       </div>
                     ) : (
-                      <BalonMbah balasan={p.balasan} aktif={dipilih === p.id} onTahapan={() => bukaTahapan(p.id)} onContoh={kirim} />
+                      <>
+                        <BalonMbah balasan={p.balasan} aktif={dipilih === p.id && (sidebar || drawer)} sorot={petunjuk === p.id} onTahapan={() => bukaTahapan(p.id)} onContoh={kirim} />
+                        <AnimatePresence>{petunjuk === p.id && <Petunjuk onBuka={() => bukaTahapan(p.id)} onCukup={cukupPetunjuk} />}</AnimatePresence>
+                      </>
                     )}
                   </motion.li>
                 ))}
@@ -178,30 +218,36 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
           </div>
           <p className="mt-1.5 hidden text-xs text-muted-foreground sm:block">Enter untuk kirim, Shift+Enter untuk baris baru. {DISCLAIMER}</p>
         </form>
-      </motion.section>
+      </section>
 
-      {/* Desktop: stages beside the chat, sliding in with the first rule-based answer. */}
+      {/* Desktop: a right sidebar, closed until the user asks for the stages. */}
       <AnimatePresence>
-        {adaPanel && (
+        {sidebar && (
           <motion.aside
-            key="panel"
-            initial={{ opacity: 0, x: 32 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 32 }}
-            transition={{ ...easeOut, delay: 0.1 }}
+            key="sidebar"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%", transition: { duration: 0.2, ease: "easeIn" } }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
             aria-label="Tahapan mesin penterjemah"
-            className="hidden lg:block"
+            className="fixed top-[calc(3.5rem+1px)] right-0 bottom-0 z-30 hidden w-[420px] flex-col border-l border-gold/50 bg-card shadow-[-8px_0_24px_-12px_rgb(124_58_18/0.18)] lg:flex"
           >
-            <div className="sticky top-4 mt-4 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border border-gold/50 bg-card shadow-sm">
-              <div className="relative shrink-0 overflow-hidden border-b border-gold/40 bg-linear-to-br from-gold-soft/80 to-card px-5 pt-4 pb-3">
-                <div aria-hidden="true" className="pattern-kawung absolute inset-0 text-gold-text" />
-                <div className="relative">
-                  <JudulPanel pertanyaan={terpilih && adaJejak(terpilih.balasan) ? pertanyaanTerpilih : undefined} />
-                </div>
+            <div className="relative shrink-0 overflow-hidden border-b border-gold/40 bg-linear-to-br from-gold-soft/80 to-card px-5 pt-4 pb-3">
+              <div aria-hidden="true" className="pattern-kawung absolute inset-0 text-gold-text" />
+              <div className="relative flex items-start justify-between gap-2">
+                <JudulPanel pertanyaan={terpilih && adaJejak(terpilih.balasan) ? pertanyaanTerpilih : undefined} />
+                <button
+                  type="button"
+                  onClick={() => setSidebar(false)}
+                  aria-label="Tutup tahapan (Esc)"
+                  className={`-mt-1 -mr-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground ${focus}`}
+                >
+                  <X aria-hidden="true" className="size-5" />
+                </button>
               </div>
-              <div className="overflow-y-auto px-5 py-3">
-                {terpilih && adaJejak(terpilih.balasan) ? <PanelDari balasan={terpilih.balasan} /> : <RingkasTahap />}
-              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3 [scrollbar-width:thin]">
+              {terpilih && adaJejak(terpilih.balasan) ? <PanelDari key={terpilih.id} balasan={terpilih.balasan} /> : <RingkasTahap />}
             </div>
           </motion.aside>
         )}
@@ -317,14 +363,48 @@ function Sambutan({ nama, isGuest, onPilih }: { nama: string; isGuest: boolean; 
   );
 }
 
-function BalonMbah({ balasan, aktif, onTahapan, onContoh }: { balasan: Balasan; aktif: boolean; onTahapan: () => void; onContoh: (k: string) => void }) {
+/** Speech bubble under a fresh answer, pointing up at its "Lihat tahapan" button. */
+function Petunjuk({ onBuka, onCukup }: { onBuka: () => void; onCukup: () => void }) {
+  return (
+    <motion.div
+      role="note"
+      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -6, scale: 0.97, transition: { duration: 0.15 } }}
+      transition={{ type: "spring", stiffness: 300, damping: 22, delay: 0.45 }}
+      style={{ originX: 0.1, originY: 0 }}
+      className="relative mt-3 max-w-sm self-start"
+    >
+      <span aria-hidden="true" className="absolute -top-1.5 left-8 size-3 rotate-45 border-t border-l border-gold bg-gold-soft" />
+      <div className="flex gap-3 rounded-2xl border border-gold bg-gold-soft p-3 shadow-sm">
+        <Gunungan className="h-10 w-8 shrink-0" />
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">
+            <strong>Penasaran cara Mbah menghitung?</strong> Klik <strong>Lihat tahapan</strong> untuk melihat kalimatmu diproses Scanner, Parser, Translator, lalu Evaluator.
+          </p>
+          <div className="flex flex-wrap gap-1">
+            <Button type="button" onClick={onBuka} className="min-h-9 px-3 py-1 text-xs">
+              <ListTree aria-hidden="true" className="size-4" /> Lihat sekarang
+            </Button>
+            <Button type="button" variant="ghost" onClick={onCukup} className="min-h-9 px-3 py-1 text-xs">
+              Sudah paham, jangan tampilkan lagi
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function BalonMbah({ balasan, aktif, sorot, onTahapan, onContoh }: { balasan: Balasan; aktif: boolean; sorot: boolean; onTahapan: () => void; onContoh: (k: string) => void }) {
   const tombolTahapan = adaJejak(balasan) && (
     <button
       type="button"
       onClick={onTahapan}
       aria-pressed={aktif}
-      className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 self-start rounded-xl px-3 text-sm font-semibold text-primary hover:bg-primary-soft aria-pressed:bg-primary-soft ${focus}`}
+      className={`relative inline-flex min-h-11 cursor-pointer items-center gap-1.5 self-start rounded-xl px-3 text-sm font-semibold text-primary hover:bg-primary-soft aria-pressed:bg-primary-soft ${focus}`}
     >
+      {sorot && <span aria-hidden="true" className="absolute inset-0 rounded-xl ring-2 ring-gold motion-safe:animate-pulse" />}
       <ListTree aria-hidden="true" className="size-4" /> Lihat tahapan
     </button>
   );

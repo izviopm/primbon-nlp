@@ -301,7 +301,9 @@ Setiap jawaban primbon memiliki panel yang bisa dibuka, berisi empat bagian beru
 3. **Translator**: teks SQL beserta parameternya.
 4. **Evaluator**: langkah perhitungan dan hasil akhir.
 
-Desktop (≥ 1024 px): panel tampil di samping chat untuk jawaban yang dipilih. Mobile: panel tampil sebagai *bottom sheet* yang bisa ditarik.
+Chat selalu satu kolom bersih di tengah. Panel dibuka lewat tombol "Lihat tahapan" pada jawaban: di desktop (≥ 1024 px) sebagai **sidebar kanan** (chat bergeser memberi ruang, tutup dengan X atau Esc), di mobile sebagai *bottom sheet*. Header panel menyebut pertanyaan yang sedang dibedah.
+
+**Petunjuk (coachmark)**: setelah jawaban rule-based, balon petunjuk muncul di bawahnya dan menyorot tombol "Lihat tahapan". Maksimal 3 kali per browser, dan berhenti selamanya begitu user membuka tahapan atau memilih "Sudah paham, jangan tampilkan lagi" (disimpan di `localStorage`).
 
 ### Admin
 
