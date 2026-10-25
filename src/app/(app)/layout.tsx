@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { LogOut } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { Logo } from "@/components/jawa";
 import { NavLinks } from "@/components/nav-links";
 import { focus } from "@/components/ui";
 import { getUser } from "@/lib/auth";
-import { signOut } from "./actions";
+import { SignOutButton } from "./sign-out-button";
 
 const navLink = `inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-muted hover:text-foreground cursor-pointer ${focus}`;
 
@@ -29,14 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {user.isGuest ? "Tamu" : (user.name ?? user.email)}
               </span>
             </Link>
-            <form action={signOut}>
-              <button type="submit" className={navLink} aria-label="Keluar">
-                <LogOut aria-hidden="true" className="size-4" />
-                <span aria-hidden="true" className="hidden lg:inline">
-                  Keluar
-                </span>
-              </button>
-            </form>
+            <SignOutButton className={navLink} isGuest={user.isGuest} />
           </div>
         </div>
       </header>
