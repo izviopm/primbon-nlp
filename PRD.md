@@ -212,7 +212,9 @@ AI dipakai di dua tempat, dan setiap panggilan dihitung ke kuota harian (bagian 
 
 ### 6.1 Normalizer: kalimat bebas → kalimat baku
 
-Dipanggil **hanya jika Parser gagal sintaks**. Jika rule-based berhasil, AI tidak dipanggil sama sekali, sehingga hemat biaya dan cepat.
+Dipanggil **hanya jika Parser gagal sintaks, atau jika pesan membawa gambar**. Jika rule-based berhasil, AI tidak dipanggil sama sekali, sehingga hemat biaya dan cepat.
+
+**Gambar**: Normalizer ikut membaca gambar (model vision). Jika gambar memuat tanggal lahir (misalnya akta atau kartu) dan user ingin weton, neptu, atau wataknya, Normalizer mengisi template dengan tanggal itu dan **rule-based tetap yang menghitung**. Contoh teruji: foto akta bertuliskan "Lahir: 17 Agustus 2003" + "wetonnya apa ya mbah?" → *apa weton orang yang lahir tanggal 17 agustus 2003* → Minggu Kliwon. Gambar lain (foto biasa, pemandangan) diteruskan ke Mbah.
 
 Masukan ke AI:
 
@@ -257,6 +259,7 @@ Mbah menjawab semua yang bukan permintaan hitungan: sapaan, ngobrol santai, pert
 - **Tidak boleh menghitung** weton, neptu, wuku, jodoh, atau tanggal sendiri. Jika datanya belum lengkap, Mbah menanyakan tanggal lahir atau weton.
 - **Boleh menjelaskan lebih rinci** hasil hitungan yang sudah ada di percakapan (riwayat ikut membawa rincian kartu weton): arti istilah, makna watak dalam keseharian, sisi positif, hal yang perlu diwaspadai, dan saran. Angka dan nama tidak boleh diubah.
 - Panjang jawaban menyesuaikan konteks; boleh memakai **tebal** dan daftar berbutir.
+- **Gambar**: Mbah melihat dan menanggapi gambar yang dikirim (model vision), tetapi tidak menuliskan ulang data pribadi sensitif yang terlihat (NIK, nomor KK, nomor rekening, alamat lengkap). Hanya gambar pada pesan terakhir yang dikirim ke AI; gambar lama di riwayat diganti penanda "[mengirim gambar]" supaya hemat.
 - System prompt juga berisi ringkasan project: tujuan, empat tahap, aturan produksi, tabel data, wuku, sumber data, dan peran AI.
 - Riwayat percakapan yang dikirim maksimal 20 pesan terakhir.
 
@@ -302,13 +305,15 @@ Untuk dosen dan teman sekelas yang ingin mencoba saat presentasi tanpa dibuatkan
 - Akun tamu dibuat sekali oleh skrip setup (`npm run setup:guest`) dengan `role = 'guest'`.
 - Semua pengunjung tamu **berbagi satu akun**, sehingga kuota tamu adalah kuota bersama, bukan per orang. Default 30 panggilan AI per hari untuk seluruh tamu, bisa diubah admin.
 - Tamu tidak bisa mengubah nama, foto, atau password, karena akun ini dipakai bersama. Server menolak perubahan itu walaupun form dikirim manual.
+- **Riwayat chat tidak disimpan untuk tamu** (termasuk gambar), karena semua pengunjung tamu memakai akun yang sama dan bisa saling melihat chat. Ini ditegakkan oleh RLS (`not is_guest()`), bukan hanya oleh UI.
 - Jika kuota tamu habis: pesan "Kuota AI tamu hari ini sudah habis. Coba pakai kalimat baku, Mbah tetap bisa jawab!" beserta chip contoh kalimat.
 
 ## 8. Halaman
 
 | Route | Isi |
 |---|---|
-| `/` | Chat Primbon: hero singkat, chip contoh untuk 5 tipe kalimat, area chat, dan panel tahapan |
+| `/` | Chat baru: hero singkat, chip contoh untuk 5 tipe kalimat, area chat, dan panel tahapan |
+| `/?c=<id>` | Melanjutkan percakapan tersimpan (pesan, jawaban lengkap dengan tahapan, dan gambar dimuat dari database) |
 | `/login` | **Panduan langkah demi langkah** "Cara Mbah menjawab": satu kalimat contoh melewati Pertanyaan → (Normalizer AI) → Scanner → Parser → Translator → Evaluator → Jawaban, maju otomatis tiap 5 detik (garis progres, tombol Jeda/Putar, berhenti saat user menavigasi sendiri, hanya saat terlihat di layar, tidak jalan saat reduced motion), dengan tombol Sebelumnya/Berikutnya, titik langkah yang bisa diklik, tombol panah keyboard, dan pilihan contoh kalimat baku atau kalimat bebas (AI); isinya output asli mesin. Di mobile ada tautan "Langsung masuk", lalu login email (atau username `tamu`) dan password, plus tombol **Masuk sebagai Tamu** |
 | `/akun` | My profile |
 | `/admin` | Tab: Users, AI settings, Limits, Statistik |
@@ -362,6 +367,13 @@ ai_usage        user_id, day, calls, primary key (user_id, day)
 user_limits     user_id pk, ai_calls_per_day (null = default peran), unlimited bool, set_by, updated_at
 
 -- Statistik
+-- Riwayat chat (bukan untuk akun tamu)
+percakapan      id uuid pk, user_id, judul (dari pesan pertama, maks 60 karakter), created_at, updated_at
+pesan           id, percakapan_id, user_id, peran ('user' | 'mbah'), teks, gambar_path,
+                balasan jsonb (bentuk Balasan, termasuk jejak tahapan), created_at
+                -- trigger: setiap pesan baru memperbarui percakapan.updated_at
+                -- gambar di Storage bucket privat "chat-gambar", folder <user id>/<percakapan id>/
+
 query_logs      id, user_id, created_at, input text,
                 kalimat_baku text, jenis_kalimat, sumber ('rule' | 'rule_ai' | 'mbah' | 'gagal'),
                 model text, durasi_ms int
@@ -385,13 +397,16 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - `hari`, `pasaran`, `jodoh`, `watak`, `wuku`: `SELECT` untuk `authenticated`. Tidak ada policy tulis.
 - `profiles`: user membaca dan mengubah baris miliknya (kecuali `role`; tamu tidak bisa mengubah sama sekali). Admin membaca semua.
 - `ai_settings`, `app_settings`, `user_limits`, `ai_usage`, `query_logs`: hanya admin (baca), penulisan lewat server dengan service role.
+- `percakapan`: pemilik saja (baca, tulis, hapus), dan bukan akun tamu. `pesan`: pemilik membaca; menulis hanya ke percakapan miliknya; terhapus ikut percakapan.
+- Bucket `chat-gambar` (privat, maks 3 MB, PNG/JPEG/WebP): unggah hanya ke folder `<user id>/` milik sendiri dan bukan tamu; baca dan hapus hanya folder sendiri. Gambar ditampilkan lewat signed URL berumur 6 jam.
 - Panggilan AI hanya dari server (Route Handler / Server Action). API key tidak pernah dikirim ke browser.
 
 ## 10. API
 
 `POST /api/tanya`
 
-- Body: `{ pesan: string, riwayat?: {peran, isi}[], kalimatTerakhir?: string }` (divalidasi dengan zod, maks 300 karakter, riwayat maks 20 pesan × 6000 karakter).
+- Body: `{ pesan?: string, gambar?: string, percakapanId?: uuid, riwayat?: {peran, isi}[], kalimatTerakhir?: string }` (divalidasi dengan zod: pesan maks 300 karakter, `gambar` berupa data URL PNG/JPEG/WebP maks sekitar 3 MB, minimal salah satu dari pesan atau gambar, riwayat maks 20 pesan × 6000 karakter).
+- Untuk akun selain tamu: pesan user (dan gambarnya) disimpan **sebelum** diproses, percakapan dibuat otomatis pada pesan pertama, lalu jawaban disimpan setelahnya. Gagal menyimpan tidak menggagalkan chat. Respons membawa `percakapanId`.
 - Wajib login (401 jika tidak).
 - Alur: preprocessing → Scanner → Parser → (gagal sintaks? Normalizer AI → `primbon`: Scanner → Parser, atau `obrolan`: Tanya Mbah) → Translator → Evaluator → simpan `query_logs`.
 - Respons: `{ sumber, jawaban, jejak: { normalizer?, scanner, parser, translator, evaluator } }`. `jejak` dipakai panel tahapan.
@@ -422,7 +437,8 @@ Detail visual ada di `UI_RULES.md` (disusun dengan skill **ui-ux-pro-max**). Rin
 - Provider AI selain OpenAI-compatible (Anthropic, Gemini).
 - Verifikasi jawaban dengan beberapa model.
 - Aksara Jawa sebagai input.
-- Penyimpanan riwayat chat per user (chat hilang saat halaman ditutup; hanya `query_logs` untuk statistik).
+- Riwayat chat untuk akun tamu.
+- Mengganti judul percakapan secara manual (judul diambil otomatis dari pesan pertama).
 - Admin menyunting tabel pengetahuan dari UI (perubahan lewat migration).
 
 ## 14. Kriteria selesai
@@ -438,6 +454,8 @@ Detail visual ada di `UI_RULES.md` (disusun dengan skill **ui-ux-pro-max**). Rin
   - Kalimat hasil Normalizer yang tidak valid ditolak Parser.
 - Kalimat informal di tabel 6.1 berhasil dijawab, dengan label "kalimat dirapikan AI".
 - Sapaan ("Mbah"), pertanyaan lanjutan ("lalu apa lagi?"), pertanyaan umum, dan curhat dijawab Mbah, tanpa penolakan.
+- Riwayat: pesan pertama membuat percakapan, pesan berikutnya masuk ke percakapan yang sama, percakapan bisa dibuka lagi lewat `/?c=<id>`, dan bisa dihapus beserta gambarnya. Akun lain (termasuk tamu) tidak bisa membaca pesan maupun gambar milik akun lain.
+- Gambar: foto berisi tanggal lahir dijawab rule-based lewat Normalizer; gambar lain ditanggapi Mbah.
 - Fallback model bekerja saat model utama dimatikan.
 - API key dan password asli akun tamu tidak pernah muncul di respons atau bundle browser.
 - Semua halaman dan `/api/tanya` menolak pengunjung yang belum login.

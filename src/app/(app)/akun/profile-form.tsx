@@ -7,25 +7,14 @@ import { CircleCheck, ImageUp } from "lucide-react";
 import { Avatar, type Gender } from "@/components/avatar";
 import { FocusFirstError } from "@/components/focus-error";
 import { Button, Field, inputClass } from "@/components/ui";
+import { kecilkanGambar } from "@/lib/gambar";
 import { saveProfile, type ProfileState } from "./actions";
 
-/** Scales an image down to at most 512 px and re-encodes it as WebP. Returns null if the browser cannot decode it. */
+/** Shrinks to a 512 px WebP (PNG on Safari), named after the type actually produced. */
 async function kecilkan(file: File): Promise<File | null> {
-  try {
-    const bmp = await createImageBitmap(file);
-    const skala = Math.min(1, 512 / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bmp.width * skala);
-    canvas.height = Math.round(bmp.height * skala);
-    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    bmp.close();
-    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.85));
-    // Safari cannot encode WebP and silently returns PNG, so name the file after what we actually got.
-    const ext = blob?.type === "image/webp" ? "webp" : blob?.type === "image/png" ? "png" : null;
-    return blob && ext ? new File([blob], `${file.name.replace(/\.\w+$/, "")}.${ext}`, { type: blob.type }) : null;
-  } catch {
-    return null;
-  }
+  const blob = await kecilkanGambar(file, 512, "image/webp");
+  const ext = blob?.type === "image/webp" ? "webp" : blob?.type === "image/png" ? "png" : null;
+  return blob && ext ? new File([blob], `${file.name.replace(/\.\w+$/, "")}.${ext}`, { type: blob.type }) : null;
 }
 
 export function ProfileForm({ name, gender, email, avatarPath }: { name: string | null; gender: Gender; email: string; avatarPath: string | null }) {

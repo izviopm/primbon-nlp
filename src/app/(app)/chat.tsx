@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+/* eslint-disable @next/next/no-img-element -- chat images are blob/data previews or short-lived signed URLs */
+
+import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, CalendarDays, CalendarSearch, Calculator, HeartHandshake, ListTree, SendHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
+import { BookOpen, CalendarDays, CalendarSearch, Calculator, HeartHandshake, History, ImagePlus, ListTree, SendHorizontal, Sparkles, SquarePen, UserRoundSearch, X } from "lucide-react";
+import Link from "next/link";
 import { Dialog } from "radix-ui";
 import { Content as DrawerContent, Handle as DrawerHandle, Overlay as DrawerOverlay, Portal as DrawerPortal, Root as DrawerRoot } from "@animate-ui/react/primitives/radix-ui/drawer";
 import { AKSARA_PRIMBON, Aksara, Gunungan } from "@/components/jawa";
@@ -11,10 +14,14 @@ import { easeOut } from "@/components/motion";
 import { Button, focus } from "@/components/ui";
 import type { Balasan, PesanRiwayat } from "@/lib/balasan";
 import { DISCLAIMER, type Jawaban } from "@/lib/nlp/evaluator";
+import { keDataUrl, kecilkanGambar } from "@/lib/gambar";
 import { MAKS_KARAKTER } from "@/lib/nlp/scanner";
+import { DaftarRiwayat, type RingkasPercakapan } from "./riwayat";
 import { LabelSumber, PanelTahapan } from "./tahapan";
 
-type Pesan = { id: number; peran: "user"; teks: string } | { id: number; peran: "mbah"; balasan: Balasan };
+/** A message as loaded from the database (no client id yet). `gambar` is a data URL or a signed URL. */
+export type PesanAwal = { peran: "user"; teks: string; gambar?: string } | { peran: "mbah"; balasan: Balasan };
+type Pesan = PesanAwal & { id: number };
 
 const CONTOH = [
   { icon: CalendarDays, label: "Weton dari tanggal lahir", kalimat: "Apa weton orang yang lahir tanggal 17 Agustus 2003?" },
@@ -31,7 +38,8 @@ const teksJawaban = (j: Jawaban) =>
   [`${j.judul}. ${j.isi}`, j.rumus, ...(j.rincian ?? []).map((r) => `${r.label ? `${r.label}: ` : ""}${r.judul}. ${r.isi}`)].filter(Boolean).join("\n").slice(0, 6000);
 const teksRiwayat = (p: Pesan): PesanRiwayat =>
   p.peran === "user"
-    ? { peran: "user", isi: p.teks }
+    ? // Earlier images are not re-sent to the AI (cost); a marker keeps the conversation readable.
+      { peran: "user", isi: p.gambar ? `${p.teks} [mengirim gambar]`.trim() : p.teks }
     : { peran: "assistant", isi: "jawaban" in p.balasan ? teksJawaban(p.balasan.jawaban) : p.balasan.sumber === "mbah" ? p.balasan.teks.slice(0, 6000) : p.balasan.pesan };
 
 /** Rotating "working" words while Mbah answers (English, a little whimsical). */
@@ -142,8 +150,26 @@ function TeksMbah({ teks }: { teks: string }) {
   );
 }
 
-export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
-  const [pesan, setPesan] = useState<Pesan[]>([]);
+export function Chat({
+  nama,
+  isGuest,
+  percakapanIdAwal,
+  pesanAwal,
+  daftarAwal,
+}: {
+  nama: string;
+  isGuest: boolean;
+  percakapanIdAwal?: string;
+  pesanAwal: PesanAwal[];
+  daftarAwal: RingkasPercakapan[];
+}) {
+  const [pesan, setPesan] = useState<Pesan[]>(() => pesanAwal.map((p, i) => ({ ...p, id: i + 1 })));
+  const [percakapanId, setPercakapanId] = useState(percakapanIdAwal);
+  const [daftar, setDaftar] = useState(daftarAwal);
+  const [laciRiwayat, setLaciRiwayat] = useState(false);
+  const [gambar, setGambar] = useState<string | null>(null);
+  const [menyiapkan, setMenyiapkan] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [sibuk, setSibuk] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,7 +179,7 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
   const [petunjuk, setPetunjuk] = useState<number | null>(null);
   const bawah = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const nextId = useRef(1);
+  const nextId = useRef(pesanAwal.length + 1);
   const router = useRouter();
 
   useEffect(() => {
@@ -177,23 +203,39 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
     .map((p) => (p.peran === "mbah" ? (p.balasan.sumber === "rule_ai" ? p.balasan.normalisasi.kalimat : p.balasan.sumber === "rule" ? p.balasan.jejak.scanner.praproses : null) : null))
     .find(Boolean);
 
+  /** Shrinks a picked or pasted image to a 1280 px JPEG and keeps it as a data URL until sending. */
+  async function pilihGambar(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setError("Lampiran harus berupa gambar.");
+    setError(null);
+    setMenyiapkan(true);
+    const blob = await kecilkanGambar(file, 1280, "image/jpeg", 0.82);
+    setMenyiapkan(false);
+    if (!blob) return setError("Gambar tidak bisa dibaca. Coba gambar lain (PNG, JPG, atau WebP).");
+    setGambar(await keDataUrl(blob));
+    inputRef.current?.focus();
+  }
+
   async function kirim(teks: string) {
     const isi = teks.trim();
-    if (!isi || sibuk) return;
+    const lampiran = gambar;
+    if ((!isi && !lampiran) || sibuk || menyiapkan) return;
     if (isi.length > MAKS_KARAKTER) return setError(`Pertanyaan maksimal ${MAKS_KARAKTER} karakter.`);
     setError(null);
     setInput("");
+    setGambar(null);
     const riwayat = pesan.slice(-20).map(teksRiwayat);
-    setPesan((p) => [...p, { id: nextId.current++, peran: "user", teks: isi }]);
+    setPesan((p) => [...p, { id: nextId.current++, peran: "user", teks: isi, gambar: lampiran ?? undefined }]);
     setSibuk(true);
     try {
       const res = await fetch("/api/tanya", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pesan: isi, riwayat, kalimatTerakhir: kalimatTerakhir ?? undefined }),
+        body: JSON.stringify({ pesan: isi, gambar: lampiran ?? undefined, percakapanId, riwayat, kalimatTerakhir: kalimatTerakhir ?? undefined }),
       });
       if (res.status === 401) return router.push("/login");
       const body = await res.json().catch(() => null);
+      if (body?.percakapanId) catatPercakapan(body.percakapanId, isi);
       if (!res.ok || !body) throw new Error(body?.error ?? "Mbah sedang tidak bisa menjawab. Coba lagi.");
       const id = nextId.current++;
       setPesan((p) => [...p, { id, peran: "mbah", balasan: body as Balasan }]);
@@ -212,6 +254,32 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
       inputRef.current?.focus();
     }
   }
+
+  /** Keeps the URL and the history list in step with the conversation the server saved this message to. */
+  function catatPercakapan(id: string, judulAwal: string) {
+    if (id !== percakapanId) {
+      setPercakapanId(id);
+      // Same page, new address: no navigation, so the chat on screen stays as it is.
+      window.history.replaceState(null, "", `/?c=${id}`);
+    }
+    const sekarang = new Date().toISOString();
+    setDaftar((d) => {
+      const lama = d.find((x) => x.id === id);
+      const judul = lama?.judul ?? (judulAwal.replace(/\s+/g, " ").slice(0, 60) || "Kiriman gambar");
+      return [{ id, judul, updated_at: sekarang }, ...d.filter((x) => x.id !== id)];
+    });
+  }
+  const hapusDariDaftar = (id: string) => {
+    setDaftar((d) => d.filter((x) => x.id !== id));
+    if (id === percakapanId) router.push("/");
+  };
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = [...e.clipboardData.files].find((f) => f.type.startsWith("image/"));
+    if (file) {
+      e.preventDefault();
+      pilihGambar(file);
+    }
+  };
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -239,9 +307,31 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
     // While the sidebar is open, the chat makes room for it instead of sliding underneath.
     // Pinned under the header instead of sized with 100dvh: on phones dvh grows as the address bar hides,
     // which let the page scroll on into empty space. Only the message list scrolls now.
-    <div className={`fixed inset-x-0 top-[calc(3.5rem+1px)] bottom-0 flex transition-[padding] duration-300 ease-out lg:px-4 ${sidebar ? "lg:pr-[436px]" : ""}`}>
+    <div
+      className={`fixed inset-x-0 top-[calc(3.5rem+1px)] bottom-0 flex transition-[padding] duration-300 ease-out lg:px-4 ${sidebar ? "lg:pr-[436px]" : ""} ${isGuest ? "" : "lg:pl-[calc(18rem+1rem)]"}`}
+    >
+      {/* Desktop: saved conversations on the left. The shared guest account keeps no history. */}
+      {!isGuest && (
+        <aside aria-label="Riwayat percakapan" className="fixed top-[calc(3.5rem+1px)] bottom-0 left-0 hidden w-72 flex-col border-r bg-card/70 p-4 lg:flex">
+          <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} />
+        </aside>
+      )}
       {/* Chat column: its own scroll area so the input stays pinned on phones. */}
       <section aria-label="Percakapan" className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col lg:py-4">
+        {!isGuest && (
+          <div className="flex items-center justify-between gap-2 border-b bg-card/80 px-2 py-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setLaciRiwayat(true)}
+              className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted-foreground hover:bg-muted ${focus}`}
+            >
+              <History aria-hidden="true" className="size-4" /> Riwayat
+            </button>
+            <Link href="/" className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-primary hover:bg-primary-soft ${focus}`}>
+              <SquarePen aria-hidden="true" className="size-4" /> Chat baru
+            </Link>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 [scrollbar-width:thin] lg:px-1" aria-live="polite" aria-busy={sibuk}>
           {pesan.length === 0 ? (
             <Sambutan nama={nama} isGuest={isGuest} onPilih={kirim} />
@@ -251,9 +341,16 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
                 {pesan.map((p) => (
                   <motion.li key={p.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={easeOut} className="flex flex-col">
                     {p.peran === "user" ? (
-                      <div className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-white shadow-sm">
-                        <span className="sr-only">Kamu: </span>
-                        {p.teks}
+                      <div className="flex max-w-[85%] flex-col items-end gap-1.5 self-end">
+                        {p.gambar && (
+                          <img src={p.gambar} alt="Gambar yang kamu kirim" className="max-h-72 rounded-2xl rounded-br-md border border-primary/30 object-contain shadow-sm" />
+                        )}
+                        {p.teks && (
+                          <div className="rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-white shadow-sm">
+                            <span className="sr-only">Kamu: </span>
+                            {p.teks}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
@@ -281,7 +378,49 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
               {error}
             </p>
           )}
+          {(gambar || menyiapkan) && (
+            <div className="mb-2 flex items-center gap-2">
+              {gambar ? (
+                <span className="relative">
+                  <img src={gambar} alt="Pratinjau gambar yang akan dikirim" className="size-16 rounded-xl border object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setGambar(null)}
+                    aria-label="Batalkan gambar"
+                    className={`absolute -top-2 -right-2 inline-flex size-7 cursor-pointer items-center justify-center rounded-full bg-foreground text-white shadow ${focus}`}
+                  >
+                    <X aria-hidden="true" className="size-4" />
+                  </button>
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">Menyiapkan gambar…</span>
+              )}
+              {gambar && <span className="text-xs text-muted-foreground">{isGuest ? "Gambar tidak disimpan untuk akun tamu." : "Gambar ikut tersimpan di riwayatmu."}</span>}
+            </div>
+          )}
           <div className="flex items-end gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => {
+                pilihGambar(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={sibuk || menyiapkan}
+              aria-label="Lampirkan gambar"
+              title="Lampirkan gambar"
+              className={`inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border bg-background text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50 ${focus}`}
+            >
+              <ImagePlus aria-hidden="true" className="size-5" />
+            </button>
             <label htmlFor="tanya" className="sr-only">
               Pertanyaan untuk Mbah
             </label>
@@ -291,16 +430,19 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
+              onPaste={onPaste}
               rows={1}
               maxLength={MAKS_KARAKTER}
               placeholder="Tanya Mbah, misalnya: kapan jumat kliwon berikutnya?"
               className={`max-h-32 min-h-11 flex-1 resize-none rounded-xl border bg-background px-3 py-2.5 text-base field-sizing-content ${focus}`}
             />
-            <Button type="submit" disabled={sibuk || !input.trim()} aria-label="Kirim pertanyaan" className="size-11 shrink-0 px-0">
+            <Button type="submit" disabled={sibuk || menyiapkan || (!input.trim() && !gambar)} aria-label="Kirim pertanyaan" className="size-11 shrink-0 px-0">
               <SendHorizontal aria-hidden="true" className="size-5" />
             </Button>
           </div>
-          <p className="mt-1.5 hidden text-xs text-muted-foreground sm:block">Enter untuk kirim, Shift+Enter untuk baris baru. {DISCLAIMER}</p>
+          <p className="mt-1.5 hidden text-xs text-muted-foreground sm:block">
+            Enter untuk kirim, Shift+Enter untuk baris baru, tempel gambar dengan Ctrl+V. {isGuest ? "Akun tamu: riwayat tidak disimpan." : ""} {DISCLAIMER}
+          </p>
         </form>
       </section>
 
@@ -336,6 +478,25 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
           </motion.aside>
         )}
       </AnimatePresence>
+
+      {/* Phones and tablets: the history list in a drawer from the left. */}
+      {!isGuest && (
+        <DrawerRoot open={laciRiwayat} onOpenChange={setLaciRiwayat} direction="left">
+          <DrawerPortal>
+            <DrawerOverlay className="fixed inset-0 z-40 bg-foreground/30" />
+            <DrawerContent className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-sm flex-col border-r border-gold/60 bg-card p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] lg:hidden">
+              <div className="mb-3 flex items-center justify-between">
+                <Dialog.Title className="font-serif text-lg font-semibold">Percakapanmu</Dialog.Title>
+                <Dialog.Close className={`inline-flex size-11 cursor-pointer items-center justify-center rounded-xl hover:bg-muted ${focus}`} aria-label="Tutup riwayat">
+                  <X aria-hidden="true" className="size-5" />
+                </Dialog.Close>
+              </div>
+              <Dialog.Description className="sr-only">Mulai chat baru atau lanjutkan percakapan sebelumnya</Dialog.Description>
+              <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} onPilih={() => setLaciRiwayat(false)} />
+            </DrawerContent>
+          </DrawerPortal>
+        </DrawerRoot>
+      )}
 
       {/* Phones and tablets: the same panel in a bottom drawer. */}
       <DrawerRoot open={drawer} onOpenChange={setDrawer}>

@@ -4,7 +4,13 @@ import { createAdminClient } from "@/lib/supabase/server";
 
 // OpenAI-compatible client with main + backup models (PRD 6.3). Adapted from Goukaku's lib/ai.ts.
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+/** Text, or OpenAI-compatible content parts so a user message can carry an image (vision models). */
+export type Bagian = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+export type ChatMessage = { role: "user" | "assistant"; content: string | Bagian[] };
+
+/** A user message with an optional image (data URL). */
+export const pesanUser = (teks: string, gambar?: string): ChatMessage =>
+  gambar ? { role: "user", content: [{ type: "text", text: teks || "(tanpa teks, hanya gambar)" }, { type: "image_url", image_url: { url: gambar } }] } : { role: "user", content: teks };
 type CallOptions = { system: string; messages: ChatMessage[]; json?: boolean; userId: string };
 
 const LIMIT_MESSAGES: Record<string, string> = {

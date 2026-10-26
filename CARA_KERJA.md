@@ -273,6 +273,7 @@ Watak menurut hari lahir (7) dan pasaran (5) secara terpisah, diparafrasakan dar
 - Diberi lima template kalimat baku, kosakata Scanner, tanggal hari ini (untuk "besok", "jumat depan"), kalimat baku terakhir (untuk "kalau sama rabu pon?"), dan empat pesan terakhir.
 - Wajib membalas JSON, hanya dua jenis: `{"jenis":"primbon","kalimat":"..."}` untuk permintaan hitungan baru yang datanya lengkap, atau `{"jenis":"obrolan"}` untuk semua yang lain. Jika ragu, pilih `obrolan`; JSON rusak juga dianggap `obrolan`.
 - Kalimat hasilnya diproses ulang oleh Scanner dan Parser. Jika tetap gagal, ditolak.
+- Jika pesan membawa **gambar**, Normalizer selalu dipanggil dan ikut membaca gambarnya. Foto akta bertuliskan "Lahir: 17 Agustus 2003" + "wetonnya apa?" menjadi *apa weton orang yang lahir tanggal 17 agustus 2003*, lalu rule-based menjawab Minggu Kliwon. AI hanya membaca tanggal; hitungannya tetap rule-based.
 
 ### Tanya Mbah
 

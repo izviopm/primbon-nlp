@@ -96,6 +96,8 @@ Aturan ini wajib diikuti untuk setiap komponen dan halaman. Untuk urusan visual,
 - Saat menunggu jawaban: gunungan bergoyang + kata berbahasa Inggris yang bergiliran tiap 1,6 detik dengan animasi naik-turun ("Thinking…", "Pondering…", "Scanning tokens…", "Consulting the primbon…", "Counting neptu…", "Reading the wuku…", dan lainnya), di dalam area `role="status"`.
 - **Kartu weton** pada jawaban rule-based: rincian (hari, pasaran, weton, wuku) sebagai kotak bergaris emas tipis, dua kolom di `sm` ke atas; label kecil kapital `gold-text`, judul serif `primary`. "Arti istilah" di bawahnya sebagai `<details>` yang bisa dibuka.
 - Jawaban Mbah mendukung **tebal**, paragraf, dan daftar berbutir.
+- **Riwayat**: desktop menampilkan panel kiri `w-72` (tombol Chat baru, daftar percakapan dengan waktu, tombol hapus muncul saat hover/fokus dengan konfirmasi inline). Di HP, bar tipis di atas pesan berisi tombol Riwayat (membuka Drawer dari kiri) dan Chat baru. Akun tamu tidak punya panel ini.
+- **Lampiran gambar**: tombol ikon di kiri kolom input (target 44 px), pratinjau kecil di atas input dengan tombol batal, dan keterangan apakah gambar ikut tersimpan. Gambar di balon user tampil di atas teks, maksimal tinggi 18rem.
 
 ## 9. Form
 
