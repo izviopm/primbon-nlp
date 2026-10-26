@@ -72,7 +72,7 @@ export function SignOutButton({ className, isGuest }: { className: string; isGue
                 <p id="keluar-isi" className="relative text-sm text-muted-foreground">
                   {isGuest
                     ? "Percakapan di halaman ini akan hilang. Untuk kembali, cukup klik Masuk sebagai Tamu lagi."
-                    : "Percakapan di halaman ini akan hilang, dan kamu perlu email serta password untuk masuk lagi."}
+                    : "Riwayat percakapanmu tetap tersimpan, dan kamu bisa masuk lagi dengan email serta password."}
                 </p>
                 <div className="relative mt-3 flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-center">
                   <Button ref={cancelRef} type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setOpen(false)}>
