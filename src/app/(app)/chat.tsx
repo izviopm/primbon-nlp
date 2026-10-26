@@ -269,6 +269,7 @@ export function Chat({
       return [{ id, judul, updated_at: sekarang }, ...d.filter((x) => x.id !== id)];
     });
   }
+  const gantiJudulDiDaftar = (id: string, judul: string) => setDaftar((d) => d.map((x) => (x.id === id ? { ...x, judul } : x)));
   const hapusDariDaftar = (id: string) => {
     setDaftar((d) => d.filter((x) => x.id !== id));
     if (id === percakapanId) router.push("/");
@@ -313,7 +314,7 @@ export function Chat({
       {/* Desktop: saved conversations on the left. The shared guest account keeps no history. */}
       {!isGuest && (
         <aside aria-label="Riwayat percakapan" className="fixed top-[calc(3.5rem+1px)] bottom-0 left-0 hidden w-72 flex-col border-r bg-card/70 p-4 lg:flex">
-          <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} />
+          <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} onGanti={gantiJudulDiDaftar} />
         </aside>
       )}
       {/* Chat column: its own scroll area so the input stays pinned on phones. */}
@@ -492,7 +493,7 @@ export function Chat({
                 </Dialog.Close>
               </div>
               <Dialog.Description className="sr-only">Mulai chat baru atau lanjutkan percakapan sebelumnya</Dialog.Description>
-              <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} onPilih={() => setLaciRiwayat(false)} />
+              <DaftarRiwayat daftar={daftar} aktif={percakapanId} onHapus={hapusDariDaftar} onGanti={gantiJudulDiDaftar} onPilih={() => setLaciRiwayat(false)} />
             </DrawerContent>
           </DrawerPortal>
         </DrawerRoot>

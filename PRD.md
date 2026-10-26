@@ -397,7 +397,7 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - `hari`, `pasaran`, `jodoh`, `watak`, `wuku`: `SELECT` untuk `authenticated`. Tidak ada policy tulis.
 - `profiles`: user membaca dan mengubah baris miliknya (kecuali `role`; tamu tidak bisa mengubah sama sekali). Admin membaca semua.
 - `ai_settings`, `app_settings`, `user_limits`, `ai_usage`, `query_logs`: hanya admin (baca), penulisan lewat server dengan service role.
-- `percakapan`: pemilik saja (baca, tulis, hapus), dan bukan akun tamu. `pesan`: pemilik membaca; menulis hanya ke percakapan miliknya; terhapus ikut percakapan.
+- `percakapan`: pemilik saja (baca, tulis, ganti judul, hapus), dan bukan akun tamu. `pesan`: pemilik membaca; menulis hanya ke percakapan miliknya; terhapus ikut percakapan.
 - Bucket `chat-gambar` (privat, maks 3 MB, PNG/JPEG/WebP): unggah hanya ke folder `<user id>/` milik sendiri dan bukan tamu; baca dan hapus hanya folder sendiri. Gambar ditampilkan lewat signed URL berumur 6 jam.
 - Panggilan AI hanya dari server (Route Handler / Server Action). API key tidak pernah dikirim ke browser.
 
@@ -454,7 +454,7 @@ Detail visual ada di `UI_RULES.md` (disusun dengan skill **ui-ux-pro-max**). Rin
   - Kalimat hasil Normalizer yang tidak valid ditolak Parser.
 - Kalimat informal di tabel 6.1 berhasil dijawab, dengan label "kalimat dirapikan AI".
 - Sapaan ("Mbah"), pertanyaan lanjutan ("lalu apa lagi?"), pertanyaan umum, dan curhat dijawab Mbah, tanpa penolakan.
-- Riwayat: pesan pertama membuat percakapan, pesan berikutnya masuk ke percakapan yang sama, percakapan bisa dibuka lagi lewat `/?c=<id>`, dan bisa dihapus beserta gambarnya. Akun lain (termasuk tamu) tidak bisa membaca pesan maupun gambar milik akun lain.
+- Riwayat: pesan pertama membuat percakapan, pesan berikutnya masuk ke percakapan yang sama, percakapan bisa dibuka lagi lewat `/?c=<id>`, bisa diganti judulnya (1-120 karakter, urutan daftar tidak berubah), dan bisa dihapus beserta gambarnya. Akun lain (termasuk tamu) tidak bisa membaca pesan maupun gambar milik akun lain.
 - Gambar: foto berisi tanggal lahir dijawab rule-based lewat Normalizer; gambar lain ditanggapi Mbah.
 - Fallback model bekerja saat model utama dimatikan.
 - API key dan password asli akun tamu tidak pernah muncul di respons atau bundle browser.
