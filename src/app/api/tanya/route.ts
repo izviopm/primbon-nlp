@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     }
 
     if (hasil?.jenis === "primbon") {
-      const normalisasi: Normalisasi = { asli: pesan, kalimat: hasil.kalimat, model: n.model };
+      const normalisasi: Normalisasi = { asli: pesan, kalimat: hasil.kalimat };
       const r2 = await prosesRule(hasil.kalimat, jalankan, hariIni);
       if (r2.status === "ok") {
         log("rule_ai", { kalimat_baku: hasil.kalimat, jenis_kalimat: jenisDari(r2), model: n.model });
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       messages: [...riwayat.map((x) => ({ role: x.peran, content: x.isi })), { role: "user" as const, content: pesan }],
     });
     log("mbah", { model: m.model });
-    return balas({ sumber: "mbah", teks: m.text, model: m.model });
+    return balas({ sumber: "mbah", teks: m.text });
   } catch (e) {
     if (!(e instanceof AIError)) {
       console.error("tanya failed", e);

@@ -91,7 +91,6 @@ export function PanelTahapan({ jejak, normalisasi, galat }: { jejak: Jejak; norm
             <span>
               <span className="font-semibold">Baku:</span> {normalisasi.kalimat}
             </span>
-            <span className="text-xs">Model: {normalisasi.model}</span>
           </div>
         </Tahap>
       )}

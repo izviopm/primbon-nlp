@@ -278,6 +278,8 @@ Setiap balon jawaban memiliki label:
 | ⚙️ **Rule-based** · 🤖 *kalimat dirapikan AI* | AI menulis ulang kalimat, rule-based yang menjawab. Kalimat asli dan kalimat baku ditampilkan |
 | 🤖 **Mbah AI** | Jawaban dari Tanya Mbah, bukan hasil hitungan primbon |
 
+**Nama model AI tidak pernah ditampilkan** ke pengguna: tidak ada di balon chat, panel tahapan, maupun respons API. Mbah juga diinstruksikan tidak menyebut nama model, pembuat, atau penyedia API-nya. Nama model hanya disimpan di `query_logs` untuk admin.
+
 ## 7. Pengguna dan peran
 
 **Semua halaman wajib login.** Tanpa sesi, user diarahkan ke `/login`.

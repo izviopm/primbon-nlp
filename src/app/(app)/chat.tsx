@@ -94,27 +94,50 @@ function tulisPetunjuk(c: CatatanPetunjuk) {
 
 const tebal = (t: string) => t.split(/(\*\*[^*]+\*\*)/g).map((s, i) => (s.startsWith("**") && s.endsWith("**") ? <strong key={i}>{s.slice(2, -2)}</strong> : s));
 
-/** Tiny renderer for the AI's markdown: **bold**, "- " bullet lists, and paragraphs. Everything else stays plain text. */
+/** Tiny renderer for the AI's markdown: **bold**, "- " / "1." lists, headings as bold lines, and paragraphs. */
 function TeksMbah({ teks }: { teks: string }) {
-  const blok = teks.trim().split(/\n{2,}/);
+  // Group consecutive lines: list items into one list, everything else into paragraphs split by blank lines.
+  type Blok = { jenis: "p"; baris: string[] } | { jenis: "ul" | "ol"; baris: string[] };
+  const blok: Blok[] = [];
+  for (const mentah of teks.trim().split("\n")) {
+    const baris = mentah.trimEnd();
+    const butir = baris.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/);
+    const jenis = butir ? (butir[1] ? "ol" : "ul") : "p";
+    const isi = butir ? butir[2] : baris.replace(/^#+\s*/, "");
+    const akhir = blok.at(-1);
+    if (!baris.trim()) {
+      if (akhir) blok.push({ jenis: "p", baris: [] });
+    } else if (akhir && akhir.jenis === jenis) akhir.baris.push(isi);
+    else blok.push({ jenis, baris: [isi] } as Blok);
+  }
   return (
     <div className="flex flex-col gap-2">
-      {blok.map((b, i) => {
-        const baris = b.split("\n");
-        if (baris.every((x) => /^\s*[-*•]\s+/.test(x)))
-          return (
+      {blok
+        .filter((b) => b.baris.length)
+        .map((b, i) =>
+          b.jenis === "p" ? (
+            <p key={i} className="whitespace-pre-wrap">
+              {b.baris.map((x, k) => (
+                <span key={k}>
+                  {k > 0 && "\n"}
+                  {tebal(x)}
+                </span>
+              ))}
+            </p>
+          ) : b.jenis === "ol" ? (
+            <ol key={i} className="flex list-decimal flex-col gap-1 pl-5 marker:font-semibold marker:text-gold-text">
+              {b.baris.map((x, k) => (
+                <li key={k}>{tebal(x)}</li>
+              ))}
+            </ol>
+          ) : (
             <ul key={i} className="flex list-disc flex-col gap-1 pl-5 marker:text-gold-text">
-              {baris.map((x, k) => (
-                <li key={k}>{tebal(x.replace(/^\s*[-*•]\s+/, ""))}</li>
+              {b.baris.map((x, k) => (
+                <li key={k}>{tebal(x)}</li>
               ))}
             </ul>
-          );
-        return (
-          <p key={i} className="whitespace-pre-wrap">
-            {tebal(b.replace(/^#+\s*/gm, ""))}
-          </p>
-        );
-      })}
+          ),
+        )}
     </div>
   );
 }
@@ -214,10 +237,12 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
 
   return (
     // While the sidebar is open, the chat makes room for it instead of sliding underneath.
-    <div className={`flex w-full flex-1 transition-[padding] duration-300 ease-out lg:px-4 ${sidebar ? "lg:pr-[436px]" : ""}`}>
+    // Pinned under the header instead of sized with 100dvh: on phones dvh grows as the address bar hides,
+    // which let the page scroll on into empty space. Only the message list scrolls now.
+    <div className={`fixed inset-x-0 top-[calc(3.5rem+1px)] bottom-0 flex transition-[padding] duration-300 ease-out lg:px-4 ${sidebar ? "lg:pr-[436px]" : ""}`}>
       {/* Chat column: its own scroll area so the input stays pinned on phones. */}
-      <section aria-label="Percakapan" className="mx-auto flex h-[calc(100dvh-3.5rem-1px)] min-h-0 w-full max-w-3xl flex-col lg:py-4">
-        <div className="flex-1 overflow-y-auto px-4 pt-4 [scrollbar-width:thin] lg:px-1" aria-live="polite" aria-busy={sibuk}>
+      <section aria-label="Percakapan" className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col lg:py-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 [scrollbar-width:thin] lg:px-1" aria-live="polite" aria-busy={sibuk}>
           {pesan.length === 0 ? (
             <Sambutan nama={nama} isGuest={isGuest} onPilih={kirim} />
           ) : (
@@ -526,7 +551,6 @@ function BalonMbah({ balasan, aktif, sorot, onTahapan, onContoh }: { balasan: Ba
             <Sparkles aria-hidden="true" className="size-3.5" /> Mbah AI · bukan hitungan primbon
           </span>
           <TeksMbah teks={balasan.teks} />
-          <span className="text-xs text-muted-foreground">Model: {balasan.model}</span>
         </div>
       </article>
     );
