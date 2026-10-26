@@ -11,11 +11,11 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 // POST /api/tanya (PRD 10): rule-based first; the AI Normalizer only runs after a syntax failure.
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const Body = z.object({
   pesan: z.string().trim().min(1).max(MAKS_KARAKTER),
-  riwayat: z.array(z.object({ peran: z.enum(["user", "assistant"]), isi: z.string().max(4000) })).max(10).default([]),
+  riwayat: z.array(z.object({ peran: z.enum(["user", "assistant"]), isi: z.string().max(6000) })).max(20).default([]),
   kalimatTerakhir: z.string().max(MAKS_KARAKTER).optional(),
 });
 
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     // 2) Gagal sintaks → Normalizer AI (satu kali percobaan).
     let n;
     try {
-      n = await complete({ userId, system: promptNormalizer(hariIni, kalimatTerakhir), messages: [{ role: "user", content: pesan }], json: true });
+      n = await complete({ userId, system: promptNormalizer(hariIni, kalimatTerakhir, riwayat), messages: [{ role: "user", content: pesan }], json: true });
     } catch (e) {
       if (!(e instanceof AIError)) throw e;
       log("gagal");
@@ -95,22 +95,15 @@ export async function POST(req: Request) {
       });
     }
 
-    if (hasil?.jenis === "tentang_project") {
-      const m = await complete({
-        userId,
-        system: promptMbah(),
-        messages: [...riwayat.map((x) => ({ role: x.peran, content: x.isi })), { role: "user" as const, content: pesan }],
-      });
-      log("mbah", { model: m.model });
-      return balas({ sumber: "mbah", teks: m.text, model: m.model });
-    }
-
-    log("gagal", { model: n.model });
-    return balas({
-      sumber: "gagal",
-      pesan: hasil ? "Maaf, Mbah cuma paham soal weton dan primbon Jawa, juga cara kerja aplikasi ini." : "Mbah belum paham maksudnya. Coba tulis seperti contoh di bawah.",
-      contoh: CONTOH_KALIMAT,
+    // 3) Everything else (greetings, follow-ups, curhat, general questions, or an unreadable classification)
+    // goes to Mbah instead of a canned refusal (PRD 6.2).
+    const m = await complete({
+      userId,
+      system: promptMbah(hariIni),
+      messages: [...riwayat.map((x) => ({ role: x.peran, content: x.isi })), { role: "user" as const, content: pesan }],
     });
+    log("mbah", { model: m.model });
+    return balas({ sumber: "mbah", teks: m.text, model: m.model });
   } catch (e) {
     if (!(e instanceof AIError)) {
       console.error("tanya failed", e);

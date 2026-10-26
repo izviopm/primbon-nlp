@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jalankanMemori } from "./db-memori.ts";
-import { wetonDari } from "./kalender.ts";
+import { WUKU } from "./data.ts";
+import { wetonDari, wukuDari } from "./kalender.ts";
 import { prosesRule } from "./mesin.ts";
 import { scan } from "./scanner.ts";
 
@@ -22,10 +23,23 @@ test("tanggal acuan dan contoh weton", () => {
   assert.deepEqual(wetonDari({ d: 1, m: 1, y: 1900 }).hari, "senin");
 });
 
+test("wuku: acuan dicocokkan dengan tiga sumber", () => {
+  const nama = (d, m, y) => WUKU[wukuDari({ d, m, y })].nama;
+  assert.equal(nama(17, 12, 2000), "Sinta"); // Minggu Pahing, awal siklus
+  assert.equal(nama(5, 7, 2020), "Sinta"); // kalenderku.id
+  assert.equal(nama(28, 3, 2001), "Julungpujut"); // ki-demang.com
+  assert.equal(nama(24, 3, 2001), "Mandasiya"); // Sabtu sebelum minggu Julungpujut
+  assert.equal(nama(16, 12, 2000), "Watugunung"); // sehari sebelum acuan: wuku terakhir
+  assert.equal(WUKU.length, 30);
+});
+
 test("WETON dari tanggal", async () => {
   const r = await ok("Apa weton orang yang lahir tanggal 17 Agustus 2003?");
   assert.equal(r.jawaban.judul, "Minggu Kliwon");
   assert.deepEqual(r.jejak.parser.aturan, ["R1", "R2", "R12", "R13", "R14"]);
+  // Kartu weton lengkap: hari, pasaran, weton, dan wuku, plus penjelasan istilah.
+  assert.deepEqual(r.jawaban.rincian.map((x) => x.label), ["Hari lahir", "Pasaran", "Weton (gabungan)", `Wuku ke-${wukuDari({ d: 17, m: 8, y: 2003 }) + 1} dari 30`]);
+  assert.ok(r.jawaban.istilah.some((x) => x.kata === "Wuku"));
 });
 
 test("NEPTU dari weton dan dari tanggal", async () => {
@@ -59,6 +73,11 @@ test("WATAK", async () => {
   const r = await ok("bagaimana watak orang dengan weton rabu pon");
   assert.equal(r.jawaban.judul, "Watak Rabu Pon");
   assert.match(r.jawaban.isi, /Gigih/);
+  // Tanpa tanggal, wuku tidak bisa dihitung.
+  assert.equal(r.jawaban.rincian.length, 3);
+  const t = await ok("bagaimana watak orang yang lahir tanggal 28 maret 2001");
+  assert.equal(t.jawaban.judul, "Watak Rabu Pon");
+  assert.match(t.jawaban.rincian[3].judul, /Julungpujut/);
 });
 
 test("sinonim dan format tanggal di Scanner", () => {

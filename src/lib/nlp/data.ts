@@ -97,6 +97,78 @@ export const WATAK: Record<`${Hari} ${Pasaran}`, string> = {
   "minggu wage": "Penuh pertimbangan dan perencana yang baik, tetapi agak keras kepala dan mudah marah.",
 };
 
-export const neptuHari =(h: Hari) => HARI.find((x) => x.nama === h)!.neptu;
+export const SUMBER_WATAK_HARI_PASARAN =
+  "ki-demang.com, Almanak Jawa (bagian Watak berdasarkan Weton: Dina dan Pasaran). Teks diparafrasakan ke bahasa sehari-hari.";
+
+/** Watak menurut hari lahir saja. */
+export const WATAK_HARI: Record<Hari, string> = {
+  minggu: "Rajin, mandiri, dan punya wibawa.",
+  senin: "Suasana hatinya mudah berubah, tetapi menawan dan disukai banyak orang.",
+  selasa: "Pergaulannya luas, tetapi mudah marah dan gampang curiga.",
+  rabu: "Tenang, sabar, dan suka mengayomi orang lain.",
+  kamis: "Penampilannya tegas sampai terkesan galak, sehingga orang segan kepadanya.",
+  jumat: "Penuh semangat dan meninggalkan kesan yang kuat.",
+  sabtu: "Membuat orang di sekitarnya senang, tetapi sikapnya sulit ditebak.",
+};
+
+/** Watak menurut pasaran lahir saja. */
+export const WATAK_PASARAN: Record<Pasaran, string> = {
+  legi: "Bertanggung jawab, dermawan, mudah bergaul, dan ceria. Ucapannya berbobot dan kuat begadang, tetapi kadang bingung sendiri dan mudah jadi sasaran gosip. Hidupnya sering naik-turun.",
+  pahing: "Pandai berhitung untung-rugi, suka menolong, tahan lapar, dan menjaga kebersihan. Namun mudah tersinggung, sering berselisih, dan kadang mudah tertipu.",
+  pon: "Ucapannya mudah diterima orang, betah di rumah, dan berani menyampaikan pendapat yang berbeda, bahkan kepada atasan. Agak suka berdebat. Rezekinya cukup.",
+  wage: "Menarik dan setia, mudah diarahkan, tetapi bisa tinggi hati dan keras kepala. Kurang memikirkan akibat jangka panjang dan kadang kurang giat mencari nafkah.",
+  kliwon: "Pandai bicara, mudah akrab, ceria, dan bercita-cita tinggi. Kadang ceplas-ceplos dan kurang teliti soal makanan, tetapi menepati janji dan sering dianggap beruntung.",
+};
+
+export const SUMBER_WUKU =
+  "detikJateng, \"30 Nama Wuku dalam Kalender Jawa Beserta Arti dan Cara Menghitungnya\" (30 Mei 2025), merujuk Horoskop Jawa (Suroso Aji Pamungkas) dan Primbon Masa Kini. Teks diparafrasakan.";
+
+/** Tanggal acuan awal siklus wuku: wuku Sinta dimulai Minggu Pahing, 17 Desember 2000 (cocok dengan 5 Juli 2020 dan ki-demang 28 Maret 2001). */
+export const ACUAN_WUKU = "2000-12-17";
+
+/** 30 wuku berurutan; tiap wuku 7 hari, satu putaran 210 hari. */
+export const WUKU: { nama: string; dewa: string; watak: string }[] = [
+  { nama: "Sinta", dewa: "Batara Yamadipati", watak: "Terlihat bijak dan berambisi. Awalnya lembut lalu bisa jadi keras, agak keras kepala, dan mudah stres." },
+  { nama: "Landep", dewa: "Batara Mahadewa", watak: "Rupawan, tenang, dan ceria. Tegas di awal lalu melunak, tetapi suka memamerkan apa yang dimiliki." },
+  { nama: "Wukir", dewa: "Batara Mahayekti", watak: "Berjiwa besar, dermawan, dan berbakat seni, tetapi wataknya sulit dipahami orang." },
+  { nama: "Kurantil", dewa: "Batara Langsur", watak: "Pandai mengambil hati orang dan teguh pendirian, tetapi boros sehingga rezekinya naik-turun." },
+  { nama: "Tolu", dewa: "Batara Bayu", watak: "Lugas dan menyenangkan, tetapi bisa sombong dan cepat marah. Keberuntungannya datang di hari tua." },
+  { nama: "Gumbreg", dewa: "Batara Cakra", watak: "Kemauannya keras, jujur, dan murah hati. Melindungi keluarga, tetapi suka berdebat." },
+  { nama: "Warigalit", dewa: "Batara Asmara", watak: "Menawan dan digemari, tetapi pencemburu, mudah jatuh cinta, dan suka menyendiri." },
+  { nama: "Warigagung", dewa: "Batara Maharesi", watak: "Bertanggung jawab dan dipercaya orang, pandai bicara, dan tegas dalam ucapan." },
+  { nama: "Julungwangi", dewa: "Batara Sambu", watak: "Dermawan dan pandai meyakinkan orang, tetapi agak angkuh dan mudah bosan sehingga kadang ingkar janji." },
+  { nama: "Sungsang", dewa: "Batara Gana", watak: "Cerdas, kuat, dan dermawan, tetapi cenderung boros dan kadang menginginkan milik orang lain." },
+  { nama: "Galungan", dewa: "Batara Kamajaya", watak: "Berwajah menarik, tulus, dan suka memberi, tetapi temperamental dan senang bersaing." },
+  { nama: "Kuningan", dewa: "Batara Indra", watak: "Berbudi luhur, berwibawa, teliti, dan hemat, tetapi pemalu dan kadang kurang terus terang." },
+  { nama: "Langkir", dewa: "Batara Kala", watak: "Berani, tetapi keras kepala dan sulit didekati. Banyak bicara namun kurang bertindak." },
+  { nama: "Mandasiya", dewa: "Batara Brahma", watak: "Tegas, punya harga diri tinggi, sabar, dan melindungi orang lain, tetapi sulit meredam amarah." },
+  { nama: "Julungpujut", dewa: "Batara Guritna", watak: "Suka keramaian dan sopan, berambisi besar, tetapi usahanya sering kurang membuahkan hasil." },
+  { nama: "Pahang", dewa: "Batara Tantra", watak: "Berwibawa dan disegani, pendiam, dan gigih, dengan ambisi yang disimpan rapat." },
+  { nama: "Kuruwelut", dewa: "Batara Wisnu", watak: "Supel, cermat, dan disukai banyak orang, tetapi mudah percaya sehingga gampang dimanfaatkan." },
+  { nama: "Marakeh", dewa: "Batara Surenggana", watak: "Pendiam dan halus perasaannya, tekun, berintuisi tajam, dan selalu berhati-hati." },
+  { nama: "Tambir", dewa: "Batara Siwa", watak: "Pemikir yang tenang dan spiritual. Lebih suka bekerja di balik layar, tetapi hasilnya nyata." },
+  { nama: "Medangkungan", dewa: "Batara Basuki", watak: "Tangguh, pekerja keras, dan setia. Mampu memimpin kelompok kecil dan lembut kepada orang terdekat." },
+  { nama: "Maktal", dewa: "Batara Sakri", watak: "Gigih, berwibawa, santun, dan disayangi atasan, tetapi suka menyendiri dan rawan berselisih." },
+  { nama: "Wuye", dewa: "Batara Kuwera", watak: "Pandai memikat dan meyakinkan, kuat, dan waspada, tetapi mudah marah dan kadang cemburu." },
+  { nama: "Manahil", dewa: "Batara Citragotra", watak: "Pandai bergaul, praktis, dan hemat, tetapi sering disalahpahami dan kadang agak malas." },
+  { nama: "Prangbakat", dewa: "Batara Bisma", watak: "Tegas dan terampil, beruntung dan panjang umur, tetapi agak kaku, pemalu, dan kadang congkak." },
+  { nama: "Bala", dewa: "Batari Durga", watak: "Dekat dengan orang berpengaruh, tetapi suka membuat keributan dan rezekinya tidak menentu." },
+  { nama: "Wugu", dewa: "Batara Singajalma", watak: "Lapang dada, bijak, rendah hati, dan rezekinya lancar, tetapi kadang tanpa sadar mengecewakan orang dekat." },
+  { nama: "Wayang", dewa: "Batari Sri", watak: "Menawan, peka perasaan orang, teliti, sabar, dan dermawan, tetapi ada sisi suka menyendiri." },
+  { nama: "Kulawu", dewa: "Batara Sadana", watak: "Berani, murah hati, teguh, dan riang, tetapi kurang memperhitungkan risiko. Dipercaya berumur panjang." },
+  { nama: "Dukut", dewa: "Batara Baruna", watak: "Disiplin dan keras seperti prajurit, cerdas, dan setia, tetapi bisa tamak sehingga kurang disukai." },
+  { nama: "Watugunung", dewa: "Batara Anantaboga", watak: "Banyak keinginan, suka berdebat, religius, dan romantis, tetapi cenderung menyendiri." },
+];
+
+/** Penjelasan istilah untuk orang yang tidak akrab dengan budaya Jawa. */
+export const ISTILAH: Record<string, string> = {
+  weton: "Gabungan hari lahir (Senin-Minggu) dan hari pasaran Jawa. Ada 35 kombinasi, berulang tiap 35 hari.",
+  pasaran: "Pekan Jawa yang berisi 5 hari: Legi, Pahing, Pon, Wage, Kliwon. Berjalan berdampingan dengan 7 hari biasa.",
+  neptu: "Nilai angka untuk hari dan pasaran. Dijumlahkan untuk menghitung kecocokan, hari baik, dan sejenisnya.",
+  wuku: "Pekan dalam kalender Jawa kuno: 30 wuku bergiliran, masing-masing 7 hari, sehingga satu putaran 210 hari. Tiap wuku punya dewa pelindung dan watak sendiri.",
+  "dewa pelindung": "Tokoh dewa dalam tradisi Jawa yang dipercaya menaungi wuku tersebut. Dipakai sebagai simbol watak.",
+};
+
+export const neptuHari = (h: Hari) => HARI.find((x) => x.nama === h)!.neptu;
 export const neptuPasaran = (p: Pasaran) => PASARAN.find((x) => x.nama === p)!.neptu;
 export const judul = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

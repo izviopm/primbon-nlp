@@ -41,11 +41,11 @@ Konsekuensinya:
 
 | Kode | Kata tanya | Contoh kalimat baku | Jawaban |
 |---|---|---|---|
-| `WETON` | Apa | apa weton orang yang lahir tanggal 17 agustus 2003 | Minggu Kliwon |
+| `WETON` | Apa | apa weton orang yang lahir tanggal 17 agustus 2003 | Minggu Kliwon, neptu 13, wuku, plus kartu weton lengkap |
 | `NEPTU` | Berapa | berapa neptu weton senin legi | 4 + 5 = 9 |
 | `JODOH` | Apakah | apakah weton senin legi cocok dengan jumat kliwon | 9 + 14 = 23, 23 mod 9 = 5, Tinari |
 | `KAPAN` | Kapan | kapan jumat kliwon berikutnya / kapan jumat kliwon di bulan desember 2026 | Daftar tanggal |
-| `WATAK` | Bagaimana | bagaimana watak orang dengan weton rabu pon | Watak weton Rabu Pon |
+| `WATAK` | Bagaimana | bagaimana watak orang dengan weton rabu pon | Watak hari, pasaran, dan weton Rabu Pon (plus wuku jika tanggal lahir disebut) |
 
 Variasi yang tetap dikenali rule-based (tanpa AI):
 
@@ -141,6 +141,8 @@ Aturan keamanan: SQL **tidak pernah** dibuat dengan menggabungkan string dari in
 
 Jika subjek berupa tanggal, Translator mencatat langkah konversi tanggal ke weton (bagian 5.5) sebelum query.
 
+Pemetaan tipe ke fungsi SQL: `WETON` dan `WATAK` → `primbon_profil` (kartu weton lengkap), `NEPTU` → `primbon_neptu`, `JODOH` → `primbon_jodoh`, `KAPAN` → `primbon_kapan`.
+
 ### 5.5 Evaluator
 
 Menjalankan rencana query dan menyusun jawaban. Setiap langkah dicatat untuk panel UI.
@@ -185,9 +187,22 @@ Sumber: rentang angka dari [Bisnis.com](https://kabar24.bisnis.com/read/20241106
 - `berikutnya`: tanggal pertama mulai **hari ini** (termasuk hari ini) yang wetonnya sama. Jika hari ini, jawab "Hari ini!".
 - `bulan <Bulan> <Tahun>`: semua tanggal di bulan itu yang wetonnya sama. Karena siklus weton 35 hari, hasilnya 0 atau 1 tanggal. Jika 0, jawab dengan tanggal terdekat sebelum dan sesudah bulan itu.
 
-**WATAK**: watak untuk weton itu (35 baris, satu per weton) dari tabel `watak`, beserta sumbernya: parafrasa [detikJateng](https://www.detik.com/jateng/budaya/d-8160116/35-weton-hari-lahir-dan-kepribadiannya-berdasarkan-primbon-jawa) (14 Okt 2025) yang merujuk *Primbon Praktis* (Mama Flo).
+**Kartu weton** (`WETON` dan `WATAK`, fungsi `primbon_profil`): jawaban tidak lagi satu baris, tetapi berisi rincian yang dijelaskan dengan bahasa awam (terinspirasi [ki-demang.com Almanak Jawa](https://ki-demang.com/almanak_jawa/weton-wuku/masehi/2001/maret/28), tetapi tanpa istilah yang sulit seperti padewan, padangon, sadwara, atau rakam):
 
-Format jawaban selalu menyertakan **cara hitungnya** dalam satu baris, misalnya "Senin Legi (9) + Jumat Kliwon (14) = 23 → 23 mod 9 = 5 → **Tinari**".
+| Rincian | Isi | Sumber |
+|---|---|---|
+| Hari lahir | Watak menurut hari (7 baris di tabel `hari`) | ki-demang.com, diparafrasakan |
+| Pasaran | Watak menurut pasaran (5 baris di tabel `pasaran`) | ki-demang.com, diparafrasakan |
+| Weton (gabungan) | Watak per weton (35 baris di tabel `watak`) | [detikJateng](https://www.detik.com/jateng/budaya/d-8160116/35-weton-hari-lahir-dan-kepribadiannya-berdasarkan-primbon-jawa) (14 Okt 2025), merujuk *Primbon Praktis* |
+| Wuku | Nama wuku ke-1 sampai 30, dewa pelindung, dan wataknya (tabel `wuku`). Hanya jika tanggal lahir diketahui | [detikJateng](https://www.detik.com/jateng/budaya/d-7940497/30-nama-wuku-dalam-kalender-jawa-beserta-arti-dan-cara-menghitungnya) (30 Mei 2025), merujuk *Horoskop Jawa* dan *Primbon Masa Kini* |
+
+**Wuku**: 30 wuku × 7 hari = siklus 210 hari. Wuku Sinta dimulai **Minggu Pahing, 17 Desember 2000**. `wuku = (selisih_hari mod 210 + 210) mod 210 / 7` (dibulatkan ke bawah). Acuan ini dicocokkan dengan tiga sumber: awal Sinta selalu Minggu Pahing, 5 Juli 2020 = awal Sinta (kalenderku.id), dan 28 Maret 2001 = Julungpujut (ki-demang.com).
+
+**Arti istilah**: jawaban menyertakan penjelasan singkat untuk istilah yang dipakai (weton, pasaran, neptu, wuku) supaya pengguna yang bukan orang Jawa tetap paham.
+
+**Tidak dipakai**: *pancasuda* (laku hidup), karena sumber yang ditemukan saling bertentangan (misalnya Rabu Pon = Bumi Kapethak menurut ki-demang, tetapi Sumur Sinaba menurut kalenderku.id).
+
+Format jawaban selalu menyertakan **cara hitungnya** dalam satu baris, misalnya "Senin Legi (9) + Jumat Kliwon (14) = 23 → 23 mod 9 = 5 → **Tinari**". Jawaban `JODOH` juga menjelaskan cara membaca hasilnya dan menegaskan bahwa hasil kurang baik dibaca sebagai pengingat, bukan larangan.
 
 **Disclaimer** kecil di setiap jawaban jodoh dan watak: "Primbon adalah warisan budaya, bukan ramalan pasti."
 
@@ -205,21 +220,23 @@ Masukan ke AI:
 - Lima template kalimat baku (bagian 4) dan daftar kosakata yang dikenali Scanner.
 - Tanggal hari ini (Asia/Jakarta), supaya "besok" atau "jumat depan" bisa diubah menjadi tanggal.
 - Kalimat baku terakhir di percakapan (jika ada), supaya pertanyaan lanjutan seperti "kalau sama rabu pon?" bisa dipahami.
+- Empat pesan terakhir percakapan, supaya "lalu apa lagi?" atau "jelaskan dong" tidak disangka permintaan hitungan baru.
 
-Keluaran AI wajib JSON:
+Keluaran AI wajib JSON, hanya dua jenis:
 
 ```json
 { "jenis": "primbon", "kalimat": "apakah weton senin legi cocok dengan rabu pon" }
-{ "jenis": "tentang_project" }
-{ "jenis": "di_luar_topik" }
+{ "jenis": "obrolan" }
 ```
 
 Alur:
 
-1. `primbon` → `kalimat` dimasukkan lagi ke Scanner dan Parser. Jika lolos, lanjut ke Translator dan Evaluator seperti biasa. Jika tidak lolos, user mendapat pesan "Mbah belum paham" beserta contoh kalimat. **Hanya satu kali percobaan AI per pertanyaan.**
-2. `tentang_project` → diteruskan ke Tanya Mbah (6.2).
-3. `di_luar_topik` → jawaban sopan bahwa Primbon NLP hanya membahas weton dan primbon, beserta contoh pertanyaan.
-4. JSON rusak atau AI tidak bisa dihubungi → diperlakukan sebagai gagal, user mendapat contoh kalimat. Tidak ada error teknis yang ditampilkan ke user.
+1. `primbon` (permintaan hitungan baru yang datanya lengkap) → `kalimat` dimasukkan lagi ke Scanner dan Parser. Jika lolos, lanjut ke Translator dan Evaluator seperti biasa. Jika tidak lolos, user mendapat pesan "Mbah belum paham" beserta contoh kalimat. **Hanya satu kali percobaan AI per pertanyaan.**
+2. `obrolan` (semua selain itu: sapaan, ngobrol, curhat, pertanyaan umum, minta penjelasan lebih rinci, pertanyaan tentang aplikasi, atau permintaan hitungan yang datanya belum lengkap) → diteruskan ke Tanya Mbah (6.2). Jika ragu, Normalizer diminta memilih `obrolan`.
+3. JSON rusak → diperlakukan sebagai `obrolan` (diteruskan ke Mbah), bukan penolakan.
+4. AI tidak bisa dihubungi atau kuota habis → pesan yang jelas beserta contoh kalimat baku, yang tetap bisa dijawab rule-based.
+
+Tidak ada lagi jawaban "Maaf, Mbah cuma paham soal weton…". Versi sebelumnya punya kategori `di_luar_topik` yang terlalu sering menolak sapaan dan pertanyaan lanjutan; label lama itu kini dibaca sebagai `obrolan`.
 
 Contoh yang harus berhasil lewat Normalizer:
 
@@ -230,22 +247,25 @@ Contoh yang harus berhasil lewat Normalizer:
 | jumat kliwon terdekat kapan sih | kapan jumat kliwon berikutnya |
 | kalo yg lahir besok neptunya brp | berapa neptu orang yang lahir tanggal 26 oktober 2026 (contoh, sesuai tanggal hari ini) |
 
-### 6.2 Tanya Mbah: pertanyaan tentang project
+### 6.2 Tanya Mbah: teman ngobrol
 
-Untuk pertanyaan seperti "Apa itu parser?", "Kenapa jodoh pakai mod 9?", atau "Project ini cara kerjanya gimana?".
+Mbah menjawab semua yang bukan permintaan hitungan: sapaan, ngobrol santai, pertanyaan umum, budaya, **curhat**, penjelasan lebih rinci tentang hasil primbon sebelumnya, dan pertanyaan tentang cara kerja aplikasi.
 
-- System prompt berisi ringkasan dokumen ini: tujuan, empat tahap, aturan produksi, tabel data, dan peran AI.
-- Persona: "Mbah", ramah dan sedikit jenaka, menjawab dalam bahasa Indonesia.
-- Tidak boleh menghitung weton. Jika ditanya hitungan, Mbah mengarahkan user untuk bertanya langsung, misalnya "Coba tanya: *apa weton orang yang lahir tanggal ...*".
-- Jika kuota AI habis, user mendapat pesan yang jelas, dan pertanyaan dengan kalimat baku tetap bisa dijawab rule-based.
-- Riwayat percakapan yang dikirim maksimal 10 pesan terakhir.
+- Persona: "Mbah", simbah yang hangat, bijak, sabar mendengarkan, dan sedikit jenaka. Bahasa Indonesia santai dan sopan, istilah Jawa selalu dijelaskan dengan bahasa sehari-hari.
+- **Curhat**: mendengarkan dengan empati, memvalidasi perasaan, bertanya dengan lembut, dan memberi saran praktis yang kecil; boleh menyelipkan petuah Jawa beserta artinya. Jika ada tanda bahaya (ingin menyakiti diri, putus asa berat, kekerasan), Mbah tetap tenang dan menyarankan bicara dengan orang yang dipercaya, serta menyebut Layanan SEJIWA 119 ekstensi 8 atau 112.
+- Menolak hanya untuk hal berbahaya atau melanggar hukum.
+- **Tidak boleh menghitung** weton, neptu, wuku, jodoh, atau tanggal sendiri. Jika datanya belum lengkap, Mbah menanyakan tanggal lahir atau weton.
+- **Boleh menjelaskan lebih rinci** hasil hitungan yang sudah ada di percakapan (riwayat ikut membawa rincian kartu weton): arti istilah, makna watak dalam keseharian, sisi positif, hal yang perlu diwaspadai, dan saran. Angka dan nama tidak boleh diubah.
+- Panjang jawaban menyesuaikan konteks; boleh memakai **tebal** dan daftar berbutir.
+- System prompt juga berisi ringkasan project: tujuan, empat tahap, aturan produksi, tabel data, wuku, sumber data, dan peran AI.
+- Riwayat percakapan yang dikirim maksimal 20 pesan terakhir.
 
 ### 6.3 Model utama dan cadangan
 
 - Admin mengatur satu **model utama** dan daftar **model cadangan** berurutan.
 - Jika model utama gagal (down, timeout, rate limit, model tidak ditemukan, balasan kosong), model berikutnya dicoba sesuai urutan.
 - Error API key (401/403) dan limit kuota **tidak** memicu fallback, karena semua model memakai key yang sama.
-- Timeout per panggilan: 30 detik.
+- Timeout per panggilan: 45 detik.
 - Tidak ada verifikasi multi-model seperti Goukaku. Satu jawaban dari model yang berhasil sudah cukup, karena kebenaran jawaban primbon dijamin oleh rule-based.
 
 ### 6.4 Label sumber jawaban
@@ -327,6 +347,8 @@ pasaran         nama text pk, neptu int, urutan int        -- urutan 0 = legi
 jodoh           sisa int pk (0-8), nama text, arti text, sumber text
 watak           hari text, pasaran text, deskripsi text, sumber text,
                 primary key (hari, pasaran)
+                -- hari dan pasaran juga punya kolom watak + sumber_watak (watak menurut hari / pasaran saja)
+wuku            urutan int pk (0-29, 0 = Sinta), nama, dewa, watak, sumber
 
 -- AI
 ai_settings     id (singleton), base_url, model, api_key_secret_id, updated_at
@@ -348,16 +370,17 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 - `primbon_neptu(p_hari, p_pasaran, p_tanggal)`
 - `primbon_jodoh(p_hari_1, p_pasaran_1, p_tanggal_1, p_hari_2, p_pasaran_2, p_tanggal_2)`
 - `weton_dari(p_hari, p_pasaran, p_tanggal)`: fungsi bantu, hari/pasaran/neptu dari nama weton atau dari tanggal
-- `primbon_weton(p_tanggal)`
+- `wuku_dari(p_tanggal)`: fungsi bantu, wuku dari tanggal (kosong jika tanggal NULL)
+- `primbon_profil(p_hari, p_pasaran, p_tanggal)`: kartu weton lengkap (neptu, watak hari, pasaran, weton, dan wuku) untuk `WETON` dan `WATAK`
 - `primbon_kapan(p_hari, p_pasaran, p_mulai, p_selesai)`
-- `primbon_watak(p_hari, p_pasaran, p_tanggal)`
+- `primbon_weton` dan `primbon_watak` masih ada di database dari versi pertama, tetapi tidak dipakai lagi.
 - `consume_ai_quota(p_user_id)`: secara atomik, urutannya: kill switch (berlaku untuk semua) → admin dan user `unlimited` lolos tanpa limit apa pun → batas global (dihitung hanya dari pemakaian pengguna biasa, tanpa admin dan unlimited) → limit khusus di `user_limits` → default peran (`guest_per_day` / `per_user_per_day`). Lalu menambah `ai_usage`.
 - `set_ai_api_key(p_key)` dan `get_ai_api_key()`: disalin dari Goukaku. `get_ai_api_key` hanya bisa dipanggil `service_role`.
 
 ### RLS
 
 - Semua tabel memakai RLS.
-- `hari`, `pasaran`, `jodoh`, `watak`: `SELECT` untuk `authenticated`. Tidak ada policy tulis.
+- `hari`, `pasaran`, `jodoh`, `watak`, `wuku`: `SELECT` untuk `authenticated`. Tidak ada policy tulis.
 - `profiles`: user membaca dan mengubah baris miliknya (kecuali `role`; tamu tidak bisa mengubah sama sekali). Admin membaca semua.
 - `ai_settings`, `app_settings`, `user_limits`, `ai_usage`, `query_logs`: hanya admin (baca), penulisan lewat server dengan service role.
 - Panggilan AI hanya dari server (Route Handler / Server Action). API key tidak pernah dikirim ke browser.
@@ -366,9 +389,9 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 
 `POST /api/tanya`
 
-- Body: `{ pesan: string, riwayat?: {peran, isi}[] }` (divalidasi dengan zod, maks 300 karakter, riwayat maks 10).
+- Body: `{ pesan: string, riwayat?: {peran, isi}[], kalimatTerakhir?: string }` (divalidasi dengan zod, maks 300 karakter, riwayat maks 20 pesan × 6000 karakter).
 - Wajib login (401 jika tidak).
-- Alur: preprocessing → Scanner → Parser → (gagal sintaks? cek kuota → Normalizer AI → Scanner → Parser) → Translator → Evaluator → simpan `query_logs`.
+- Alur: preprocessing → Scanner → Parser → (gagal sintaks? Normalizer AI → `primbon`: Scanner → Parser, atau `obrolan`: Tanya Mbah) → Translator → Evaluator → simpan `query_logs`.
 - Respons: `{ sumber, jawaban, jejak: { normalizer?, scanner, parser, translator, evaluator } }`. `jejak` dipakai panel tahapan.
 
 ## 11. Desain
@@ -376,7 +399,7 @@ Fungsi SQL (RPC), semuanya parameterized dan hanya `SELECT`:
 Detail visual ada di `UI_RULES.md` (disusun dengan skill **ui-ux-pro-max**). Ringkasnya:
 
 - **Hanya tema terang.** Tidak ada mode gelap, dan tidak mengikuti `prefers-color-scheme`. Tampilan harus terasa hangat dan terang, bukan gelap atau mistis.
-- **Unsur Jawa yang halus**: motif batik (kawung atau parang) samar di latar, gunungan wayang sebagai animasi "Mbah sedang berpikir", aksara Jawa sebagai ornamen judul (dengan `aria-hidden` dan teks Latin di sampingnya), serta palet sogan (cokelat batik) dan emas di atas latar krem terang.
+- **Unsur Jawa yang halus**: motif batik (kawung atau parang) samar di latar, gunungan wayang yang bergoyang saat menunggu jawaban (dengan kata-kata bergiliran berbahasa Inggris seperti "Thinking…", "Pondering…", "Consulting the primbon…"), aksara Jawa sebagai ornamen judul (dengan `aria-hidden` dan teks Latin di sampingnya), serta palet sogan (cokelat batik) dan emas di atas latar krem terang.
 - **Animasi**: [motion.dev](https://motion.dev) (paket `motion`) dan komponen [Animate UI](https://animate-ui.com). Semua animasi menghormati `prefers-reduced-motion`.
 - **Mobile dan desktop setara**: dirancang mobile-first. Input chat menempel di bawah dengan memperhitungkan *safe area* dan keyboard, target sentuh minimal 44 px, tanpa scroll horizontal di lebar 360 px. Di desktop, chat dan panel tahapan tampil berdampingan.
 - **Aksesibilitas**: kontras teks minimal WCAG AA (4.5:1), fokus keyboard terlihat, dan label sumber jawaban tidak hanya mengandalkan warna.
@@ -406,10 +429,13 @@ Detail visual ada di `UI_RULES.md` (disusun dengan skill **ui-ux-pro-max**). Rin
 - Unit test lulus untuk minimal kasus berikut:
   - 17 Agustus 1945 → Jumat Legi; 17 Agustus 2003 → Minggu Kliwon; satu tanggal sebelum 1945.
   - Neptu Senin Legi = 9; Senin Legi + Jumat Kliwon → 23 → sisa 5 → Tinari; jumlah 9, 18, 27, 36 → Pegat; 17 → Pesthi.
+  - Wuku: 17 Desember 2000 dan 5 Juli 2020 → Sinta; 28 Maret 2001 → Julungpujut; 16 Desember 2000 → Watugunung.
+  - Kartu weton: `WETON` berisi rincian hari, pasaran, weton, dan wuku; `WATAK` tanpa tanggal tidak memuat wuku.
   - "30 februari 2003" → gagal semantik, tidak memanggil AI.
   - Kalimat informal → gagal sintaks.
   - Kalimat hasil Normalizer yang tidak valid ditolak Parser.
 - Kalimat informal di tabel 6.1 berhasil dijawab, dengan label "kalimat dirapikan AI".
+- Sapaan ("Mbah"), pertanyaan lanjutan ("lalu apa lagi?"), pertanyaan umum, dan curhat dijawab Mbah, tanpa penolakan.
 - Fallback model bekerja saat model utama dimatikan.
 - API key dan password asli akun tamu tidak pernah muncul di respons atau bundle browser.
 - Semua halaman dan `/api/tanya` menolak pengunjung yang belum login.

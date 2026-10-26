@@ -28,7 +28,7 @@ export class ProviderError extends AIError {
 // Every model shares one key, so a key/permission error or a quota stop fails them all.
 export const isFatal = (e: unknown) => e instanceof QuotaError || (e instanceof ProviderError && (e.status === 401 || e.status === 403));
 
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 45_000;
 
 /** Checks the kill switch and limits, then records one AI call. Throws QuotaError with a user-facing message. */
 async function consumeQuota(userId: string) {

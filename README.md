@@ -8,11 +8,13 @@ Mesin penterjemah bahasa alami **berbasis aturan (rule-based)** untuk konsultasi
 
 | Pertanyaan | Jawaban |
 |---|---|
-| Apa weton orang yang lahir tanggal 17 Agustus 2003? | **Minggu Kliwon** |
+| Apa weton orang yang lahir tanggal 17 Agustus 2003? | **Minggu Kliwon**, neptu 13, wuku Medangkungan, plus kartu weton: watak hari, pasaran, weton, dan wuku |
 | Berapa neptu weton Senin Legi? | Senin (4) + Legi (5) = **9** |
 | Apakah weton Senin Legi cocok dengan Jumat Kliwon? | 9 + 14 = 23 → 23 mod 9 = 5 → **Tinari** |
 | Kapan Jumat Kliwon berikutnya? | **30 Oktober 2026** (dihitung dari 25 Oktober 2026) |
-| Bagaimana watak orang dengan weton Rabu Pon? | Watak weton Rabu Pon: gigih dan mudah bergaul… |
+| Bagaimana watak orang dengan weton Rabu Pon? | Watak hari Rabu, pasaran Pon, dan weton Rabu Pon (wuku ikut jika tanggal lahir disebut) |
+| Mbah, aku lagi capek banget… | 🤖 Mbah menemani curhat |
+| lalu apa lagi? (setelah jawaban primbon) | 🤖 Mbah menjelaskan hasil sebelumnya lebih rinci |
 
 ## Peran AI dan rule-based
 
@@ -32,8 +34,7 @@ flowchart TD
     I -- primbon --> B2[Scanner + Parser lagi]
     B2 -- lolos --> D
     B2 -- tetap gagal --> H
-    I -- tentang project --> J[🤖 Tanya Mbah<br/>jawab dari dokumentasi]
-    I -- di luar topik --> K[Tolak dengan sopan]
+    I -- obrolan / curhat / penjelasan --> J[🤖 Tanya Mbah<br/>teman ngobrol]
 ```
 
 | | Rule-based | AI |
@@ -42,7 +43,7 @@ flowchart TD
 | Mengenali kalimat bebas ("aku senin legi, pacarku jumat kliwon, cocok ga?") | ❌ | ✅ ditulis ulang jadi kalimat baku |
 | Menghitung weton, neptu, jodoh, tanggal | ✅ selalu | ❌ tidak pernah |
 | Memvalidasi hasil AI | ✅ kalimat AI wajib lolos Parser yang sama | ❌ |
-| Menjawab pertanyaan tentang project ("apa itu parser?") | ❌ | ✅ Tanya Mbah |
+| Ngobrol, curhat, pertanyaan umum, penjelasan hasil lebih rinci, dan pertanyaan tentang project | ❌ | ✅ Tanya Mbah (tanpa menghitung) |
 
 Setiap jawaban diberi label: **⚙️ Rule-based**, **⚙️ Rule-based · 🤖 kalimat dirapikan AI**, atau **🤖 Mbah AI**. Panel tahapan menampilkan hasil tiap tahap, sehingga mudah dijelaskan saat presentasi.
 
@@ -51,7 +52,7 @@ Setiap jawaban diberi label: **⚙️ Rule-based**, **⚙️ Rule-based · 🤖 
 1. **Scanner**: huruf kecil, buang tanda baca, normalisasi tanggal (`17/8/2003` → `17 agustus 2003`) dan sinonim (`ahad` → `minggu`, `manis` → `legi`), lalu memberi label tiap token (`KATA_TANYA`, `HARI`, `PASARAN`, `BULAN`, `ANGKA`, ...).
 2. **Parser**: *recursive descent* mengikuti 14 aturan produksi (R1-R14), menghasilkan pohon parse dan nomor aturan yang dipakai.
 3. **Translator**: mengubah pohon parse menjadi rencana query dan SQL berparameter.
-4. **Evaluator**: menghitung hari pasaran dari tanggal (acuan 17 Agustus 1945 = Jumat Legi), menjalankan query ke tabel `hari`, `pasaran`, `jodoh`, `watak`, lalu menyusun jawaban beserta cara hitungnya. Jodoh memakai `(neptu_1 + neptu_2) mod 9` (sisa 0 dan 1 = Pegat), sesuai rentang angka di [Bisnis.com](https://kabar24.bisnis.com/read/20241106/243/1813354/cara-hitung-weton-jawa-untuk-pernikahan-agar-jauh-dari-bala), dengan arti kategori dari [Pegadaian](https://pegadaian.co.id/artikel/inspirasi/hitungan-weton-jawa-untuk-pernikahan).
+4. **Evaluator**: menghitung hari pasaran dari tanggal (acuan 17 Agustus 1945 = Jumat Legi), menghitung wuku (acuan 17 Desember 2000 = awal Sinta), menjalankan query ke tabel `hari`, `pasaran`, `jodoh`, `watak`, `wuku`, lalu menyusun jawaban beserta cara hitung dan rinciannya. Jodoh memakai `(neptu_1 + neptu_2) mod 9` (sisa 0 dan 1 = Pegat), sesuai rentang angka di [Bisnis.com](https://kabar24.bisnis.com/read/20241106/243/1813354/cara-hitung-weton-jawa-untuk-pernikahan-agar-jauh-dari-bala), dengan arti kategori dari [Pegadaian](https://pegadaian.co.id/artikel/inspirasi/hitungan-weton-jawa-untuk-pernikahan).
 
 Aturan produksi lengkap, rumus, dan tabel data ada di [`PRD.md`](./PRD.md) bagian 4-5.
 
@@ -59,7 +60,9 @@ Aturan produksi lengkap, rumus, dan tabel data ada di [`PRD.md`](./PRD.md) bagia
 
 - Chat primbon dengan 5 tipe kalimat dan panel tahapan.
 - Normalizer AI untuk kalimat bebas, dengan pertanyaan lanjutan ("kalau sama rabu pon?").
-- Tanya Mbah: AI yang menjelaskan cara kerja project.
+- Tanya Mbah: AI teman ngobrol yang bisa diajak curhat, menjawab pertanyaan umum, menjelaskan hasil primbon lebih rinci, dan menjelaskan cara kerja project.
+- Kartu weton lengkap: watak hari, pasaran, weton, dan wuku (siklus 210 hari), semuanya dijelaskan dengan bahasa awam beserta arti istilahnya.
+- Saat menunggu jawaban, gunungan bergoyang dengan kata bergiliran seperti "Thinking…", "Pondering…", "Consulting the primbon…".
 - Halaman login dengan panduan langkah demi langkah (bisa maju-mundur): satu kalimat contoh melewati keempat tahap, untuk kalimat baku maupun kalimat bebas yang dirapikan AI.
 - Semua fitur wajib login. Ada akun **tamu** (username `tamu`, password `tamu`) dengan kuota AI kecil yang dipakai bersama, untuk dosen dan teman yang ingin mencoba.
 - Admin: kelola user, AI (Base URL, API key, model utama dan cadangan), limit harian, kill switch, dan statistik rule-based vs AI.

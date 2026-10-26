@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { CalendarDays, CalendarSearch, Calculator, HeartHandshake, ListTree, SendHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
+import { BookOpen, CalendarDays, CalendarSearch, Calculator, HeartHandshake, ListTree, SendHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Content as DrawerContent, Handle as DrawerHandle, Overlay as DrawerOverlay, Portal as DrawerPortal, Root as DrawerRoot } from "@animate-ui/react/primitives/radix-ui/drawer";
 import { AKSARA_PRIMBON, Aksara, Gunungan } from "@/components/jawa";
 import { easeOut } from "@/components/motion";
 import { Button, focus } from "@/components/ui";
 import type { Balasan, PesanRiwayat } from "@/lib/balasan";
-import { DISCLAIMER } from "@/lib/nlp/evaluator";
+import { DISCLAIMER, type Jawaban } from "@/lib/nlp/evaluator";
 import { MAKS_KARAKTER } from "@/lib/nlp/scanner";
 import { LabelSumber, PanelTahapan } from "./tahapan";
 
@@ -26,10 +26,51 @@ const CONTOH = [
 ];
 
 const adaJejak = (b: Balasan) => "jejak" in b && !!b.jejak;
+/** A rule-based answer as plain text, details included, so Mbah can explain it further in follow-ups. */
+const teksJawaban = (j: Jawaban) =>
+  [`${j.judul}. ${j.isi}`, j.rumus, ...(j.rincian ?? []).map((r) => `${r.label ? `${r.label}: ` : ""}${r.judul}. ${r.isi}`)].filter(Boolean).join("\n").slice(0, 6000);
 const teksRiwayat = (p: Pesan): PesanRiwayat =>
   p.peran === "user"
     ? { peran: "user", isi: p.teks }
-    : { peran: "assistant", isi: "jawaban" in p.balasan ? `${p.balasan.jawaban.judul}. ${p.balasan.jawaban.isi}` : p.balasan.sumber === "mbah" ? p.balasan.teks : p.balasan.pesan };
+    : { peran: "assistant", isi: "jawaban" in p.balasan ? teksJawaban(p.balasan.jawaban) : p.balasan.sumber === "mbah" ? p.balasan.teks.slice(0, 6000) : p.balasan.pesan };
+
+/** Rotating "working" words while Mbah answers (English, a little whimsical). */
+const KATA_BERPIKIR = [
+  "Thinking",
+  "Pondering",
+  "Scanning tokens",
+  "Parsing",
+  "Consulting the primbon",
+  "Counting neptu",
+  "Reading the wuku",
+  "Contemplating",
+  "Musing",
+  "Brewing an answer",
+];
+
+function KataBerpikir() {
+  const [i, setI] = useState(() => Math.floor(Math.random() * KATA_BERPIKIR.length));
+  useEffect(() => {
+    const t = setInterval(() => setI((x) => (x + 1) % KATA_BERPIKIR.length), 1600);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="relative inline-flex h-6 min-w-48 items-center overflow-hidden">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={i}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+          className="font-medium text-primary"
+        >
+          {KATA_BERPIKIR[i]}…
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
 
 // Coachmark that points at "Lihat tahapan" (per browser): shown for the first few answers, then never again
 // once the user has opened the stages or said they do not need it.
@@ -51,12 +92,30 @@ function tulisPetunjuk(c: CatatanPetunjuk) {
   }
 }
 
-/** Tiny renderer for the AI's **bold** markdown; everything else stays plain text. */
+const tebal = (t: string) => t.split(/(\*\*[^*]+\*\*)/g).map((s, i) => (s.startsWith("**") && s.endsWith("**") ? <strong key={i}>{s.slice(2, -2)}</strong> : s));
+
+/** Tiny renderer for the AI's markdown: **bold**, "- " bullet lists, and paragraphs. Everything else stays plain text. */
 function TeksMbah({ teks }: { teks: string }) {
+  const blok = teks.trim().split(/\n{2,}/);
   return (
-    <p className="whitespace-pre-wrap">
-      {teks.split(/(\*\*[^*]+\*\*)/g).map((s, i) => (s.startsWith("**") && s.endsWith("**") ? <strong key={i}>{s.slice(2, -2)}</strong> : s))}
-    </p>
+    <div className="flex flex-col gap-2">
+      {blok.map((b, i) => {
+        const baris = b.split("\n");
+        if (baris.every((x) => /^\s*[-*•]\s+/.test(x)))
+          return (
+            <ul key={i} className="flex list-disc flex-col gap-1 pl-5 marker:text-gold-text">
+              {baris.map((x, k) => (
+                <li key={k}>{tebal(x.replace(/^\s*[-*•]\s+/, ""))}</li>
+              ))}
+            </ul>
+          );
+        return (
+          <p key={i} className="whitespace-pre-wrap">
+            {tebal(b.replace(/^#+\s*/gm, ""))}
+          </p>
+        );
+      })}
+    </div>
   );
 }
 
@@ -101,7 +160,7 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
     if (isi.length > MAKS_KARAKTER) return setError(`Pertanyaan maksimal ${MAKS_KARAKTER} karakter.`);
     setError(null);
     setInput("");
-    const riwayat = pesan.slice(-10).map(teksRiwayat);
+    const riwayat = pesan.slice(-20).map(teksRiwayat);
     setPesan((p) => [...p, { id: nextId.current++, peran: "user", teks: isi }]);
     setSibuk(true);
     try {
@@ -185,7 +244,7 @@ export function Chat({ nama, isGuest }: { nama: string; isGuest: boolean }) {
           {sibuk && (
             <div className="flex items-center gap-3 pb-4 text-muted-foreground" role="status">
               <Gunungan className="h-10 w-8" berpikir />
-              <span>Mbah sedang menghitung…</span>
+              <KataBerpikir />
             </div>
           )}
           <div ref={bawah} />
@@ -426,6 +485,32 @@ function BalonMbah({ balasan, aktif, sorot, onTahapan, onContoh }: { balasan: Ba
             <p>{jawaban.isi}</p>
           </div>
           {jawaban.rumus && <p className="rounded-xl bg-gold-soft/70 px-3 py-2 font-mono text-sm break-words">{jawaban.rumus}</p>}
+          {!!jawaban.rincian?.length && (
+            <ul className="grid gap-2 sm:grid-cols-2" aria-label="Rincian primbon">
+              {jawaban.rincian.map((r, i) => (
+                <li key={i} className={`flex flex-col gap-1 rounded-xl border border-gold/40 bg-background p-3 ${i === jawaban.rincian!.length - 1 && jawaban.rincian!.length % 2 ? "sm:col-span-2" : ""}`}>
+                  {r.label && <span className="text-xs font-semibold tracking-wide text-gold-text uppercase">{r.label}</span>}
+                  <span className="font-serif font-semibold text-primary">{r.judul}</span>
+                  <span className="text-sm">{r.isi}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!!jawaban.istilah?.length && (
+            <details className="group rounded-xl bg-muted/60 px-3 py-2 text-sm">
+              <summary className={`flex min-h-9 cursor-pointer list-none items-center gap-2 font-semibold text-muted-foreground ${focus} rounded-lg`}>
+                <BookOpen aria-hidden="true" className="size-4" /> Arti istilah ({jawaban.istilah.map((x) => x.kata).join(", ")})
+              </summary>
+              <dl className="mt-1 flex flex-col gap-1.5 pb-1">
+                {jawaban.istilah.map((x) => (
+                  <div key={x.kata}>
+                    <dt className="inline font-semibold">{x.kata}: </dt>
+                    <dd className="inline text-muted-foreground">{x.arti}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          )}
           {jawaban.catatan && <p className="text-xs text-muted-foreground">{jawaban.catatan}</p>}
           {tombolTahapan}
         </div>

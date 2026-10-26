@@ -1,4 +1,4 @@
-import { BULAN, HARI, PASARAN, type Hari, type Pasaran } from "./data.ts";
+import { ACUAN_WUKU, BULAN, HARI, PASARAN, type Hari, type Pasaran } from "./data.ts";
 
 export type Tanggal = { d: number; m: number; y: number }; // m: 1-12
 
@@ -22,7 +22,13 @@ export function wetonDari(t: Tanggal): { hari: Hari; pasaran: Pasaran } {
   return { hari: HARI[new Date(utc(t)).getUTCDay()].nama, pasaran: PASARAN[((selisih % 5) + 5) % 5].nama };
 }
 
-export const tambahHari = (t: Tanggal, n: number) => dariUtc(utc(t) + n * HARI_MS);
+/** Urutan wuku 0-29 (0 = Sinta): minggu ke berapa dalam siklus 210 hari sejak ACUAN_WUKU. */
+export function wukuDari(t: Tanggal): number {
+  const selisih = Math.round((utc(t) - utc(dariIso(ACUAN_WUKU))) / HARI_MS);
+  return Math.floor((((selisih % 210) + 210) % 210) / 7);
+}
+
+export const tambahHari =(t: Tanggal, n: number) => dariUtc(utc(t) + n * HARI_MS);
 export const banding = (a: Tanggal, b: Tanggal) => utc(a) - utc(b);
 export const iso = (t: Tanggal) => `${t.y}-${String(t.m).padStart(2, "0")}-${String(t.d).padStart(2, "0")}`;
 export const dariIso = (s: string): Tanggal => {

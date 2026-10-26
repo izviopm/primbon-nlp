@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test src/lib/**/*.test.mjs",
-    "seed:sql": "node scripts/seed-sql.mjs > supabase/migrations/20261025000001_seed_primbon.sql",
+    "seed:sql": "node scripts/seed-sql.mjs > supabase/migrations/20261025000001_seed_primbon.sql && node scripts/seed-sql.mjs rincian > supabase/migrations/20261026000003_seed_rincian.sql",
     "setup:guest": "node --env-file=.env.local scripts/setup-guest.mjs"
   },
   "dependencies": {

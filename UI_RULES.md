@@ -93,7 +93,9 @@ Aturan ini wajib diikuti untuk setiap komponen dan halaman. Untuk urusan visual,
 - Hanya animasikan `transform` dan `opacity`.
 - Balon chat masuk dengan fade + naik 8 px. Tahapan di panel muncul berurutan (stagger 60 ms).
 - Tombol: `cursor-pointer`, `active:scale-97`, fokus `ring-2 ring-ring ring-offset-2`.
-- Saat menunggu jawaban: gunungan bergoyang + teks "Mbah sedang menghitung…" (`aria-live="polite"`).
+- Saat menunggu jawaban: gunungan bergoyang + kata berbahasa Inggris yang bergiliran tiap 1,6 detik dengan animasi naik-turun ("Thinking…", "Pondering…", "Scanning tokens…", "Consulting the primbon…", "Counting neptu…", "Reading the wuku…", dan lainnya), di dalam area `role="status"`.
+- **Kartu weton** pada jawaban rule-based: rincian (hari, pasaran, weton, wuku) sebagai kotak bergaris emas tipis, dua kolom di `sm` ke atas; label kecil kapital `gold-text`, judul serif `primary`. "Arti istilah" di bawahnya sebagai `<details>` yang bisa dibuka.
+- Jawaban Mbah mendukung **tebal**, paragraf, dan daftar berbutir.
 
 ## 9. Form
 

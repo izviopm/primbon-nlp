@@ -6,7 +6,7 @@ import type { Makna, Subjek } from "./parser.ts";
 // Teks SQL di sini SAMA dengan isi fungsi primbon_* di supabase/migrations (PRD 5.4): nilai selalu
 // diikat sebagai parameter, tidak pernah digabung ke string SQL.
 
-export type Rpc = "primbon_weton" | "primbon_neptu" | "primbon_jodoh" | "primbon_watak" | "primbon_kapan";
+export type Rpc = "primbon_profil" | "primbon_neptu" | "primbon_jodoh" | "primbon_kapan";
 export type Parameter = { nama: string; nilai: string | null; arti: string };
 export type Rencana = {
   rpc: Rpc;
@@ -29,10 +29,25 @@ RETURNS TABLE (hari text, pasaran text, neptu_hari int, neptu_pasaran int, neptu
          AND p.urutan = MOD(MOD(p_tanggal - DATE '1945-08-17', 5) + 5, 5));
 $$ LANGUAGE sql STABLE;`;
 
+/** Fungsi bantu wuku: siklus 210 hari (30 wuku × 7 hari), wuku Sinta dimulai Minggu Pahing 17 Desember 2000. */
+export const SQL_WUKU_DARI = `CREATE FUNCTION wuku_dari(p_tanggal date)
+RETURNS TABLE (urutan int, nama text, dewa text, watak text, sumber text) AS $$
+  SELECT w.urutan, w.nama, w.dewa, w.watak, w.sumber
+  FROM wuku w
+  WHERE p_tanggal IS NOT NULL
+    AND w.urutan = MOD(MOD(p_tanggal - DATE '2000-12-17', 210) + 210, 210) / 7;
+$$ LANGUAGE sql STABLE;`;
+
 const SQL: Record<Rpc, string> = {
-  primbon_weton: `-- R2: apa weton ... tanggal <Tanggal>
-SELECT w.hari, w.pasaran, w.neptu_hari, w.neptu_pasaran, w.neptu
-FROM weton_dari(NULL, NULL, $1) w;`,
+  primbon_profil: `-- R2 / R6: kartu weton lengkap dari weton atau tanggal
+SELECT w.hari, w.pasaran, w.neptu_hari, w.neptu_pasaran, w.neptu,
+       h.watak AS watak_hari, p.watak AS watak_pasaran, k.deskripsi AS watak_weton,
+       u.nama AS wuku, u.urutan + 1 AS wuku_ke, u.dewa AS dewa_wuku, u.watak AS watak_wuku
+FROM weton_dari($1, $2, $3) w
+JOIN hari h    ON h.nama = w.hari
+JOIN pasaran p ON p.nama = w.pasaran
+JOIN watak k   ON k.hari = w.hari AND k.pasaran = w.pasaran
+LEFT JOIN wuku_dari($3) u ON TRUE;  -- wuku hanya ada jika tanggal diketahui`,
   primbon_neptu: `-- R3: berapa neptu <Subjek>
 SELECT w.hari, w.pasaran, w.neptu_hari, w.neptu_pasaran, w.neptu
 FROM weton_dari($1, $2, $3) w;`,
@@ -44,10 +59,6 @@ FROM weton_dari($1, $2, $3) a,
      weton_dari($4, $5, $6) b,
      jodoh j
 WHERE j.sisa = MOD(a.neptu + b.neptu, 9);`,
-  primbon_watak: `-- R6: bagaimana watak <Subjek>
-SELECT w.hari, w.pasaran, w.neptu, k.deskripsi, k.sumber
-FROM weton_dari($1, $2, $3) w
-JOIN watak k ON k.hari = w.hari AND k.pasaran = w.pasaran;`,
   primbon_kapan: `-- R5: kapan <Weton> <Waktu>
 SELECT d::date AS tanggal
 FROM generate_series($3::date, $4::date, INTERVAL '1 day') AS d
@@ -73,21 +84,15 @@ function argSubjek(s: Subjek, awal: number, akhiran = "") {
 
 export function translate(makna: Makna, hariIni: Tanggal): Rencana {
   switch (makna.jenis) {
-    case "WETON": {
-      const t = iso(makna.tanggal);
-      return {
-        rpc: "primbon_weton",
-        args: { p_tanggal: t },
-        sql: SQL.primbon_weton,
-        parameter: [{ nama: "$1", nilai: t, arti: "tanggal lahir" }],
-        langkah: [`Tipe WETON → fungsi primbon_weton`, `Tanggal ${formatTanggal(makna.tanggal)} diikat sebagai $1`],
-      };
-    }
+    case "WETON":
     case "NEPTU":
     case "WATAK": {
-      const rpc = makna.jenis === "NEPTU" ? "primbon_neptu" : "primbon_watak";
-      const { args, parameter } = argSubjek(makna.subjek, 1);
-      return { rpc, args, sql: SQL[rpc], parameter, langkah: [`Tipe ${makna.jenis} → fungsi ${rpc}`, `Subjek: ${teksSubjek(makna.subjek)}`] };
+      const subjek: Subjek = makna.jenis === "WETON" ? { jenis: "tanggal", tanggal: makna.tanggal } : makna.subjek;
+      const rpc = makna.jenis === "NEPTU" ? "primbon_neptu" : "primbon_profil";
+      const { args, parameter } = argSubjek(subjek, 1);
+      const langkah = [`Tipe ${makna.jenis} → fungsi ${rpc}`, `Subjek: ${teksSubjek(subjek)}`];
+      if (rpc === "primbon_profil") langkah.push(subjek.jenis === "tanggal" ? "Tanggal diketahui, jadi wuku ikut dihitung" : "Hanya weton yang diketahui, jadi wuku tidak bisa dihitung (butuh tanggal)");
+      return { rpc, args, sql: SQL[rpc], parameter, langkah };
     }
     case "JODOH": {
       const a = argSubjek(makna.kiri, 1, "_1");

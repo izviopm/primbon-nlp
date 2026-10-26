@@ -21,8 +21,7 @@ flowchart TD
     I -- primbon --> B2[Scanner + Parser lagi]
     B2 -- lolos --> D
     B2 -- tetap gagal --> H
-    I -- tentang aplikasi --> J[🤖 Tanya Mbah]
-    I -- di luar topik --> K[Tolak dengan sopan]
+    I -- obrolan / curhat / penjelasan --> J[🤖 Tanya Mbah<br/>teman ngobrol]
 ```
 
 | Tugas | Rule-based | AI |
@@ -31,7 +30,7 @@ flowchart TD
 | Mengenali kalimat bebas ("aku senin legi, pacarku jumat kliwon, cocok ga?") | Tidak | Ya, ditulis ulang jadi kalimat baku |
 | Menghitung weton, neptu, jodoh, tanggal, watak | **Selalu** | **Tidak pernah** |
 | Memvalidasi hasil AI | Ya, lewat Parser yang sama | Tidak |
-| Menjawab pertanyaan tentang aplikasi ("apa itu parser?") | Tidak | Ya, Tanya Mbah |
+| Ngobrol, curhat, pertanyaan umum, penjelasan hasil lebih rinci, pertanyaan tentang aplikasi | Tidak | Ya, Tanya Mbah (tanpa menghitung) |
 
 Di aplikasi, setiap jawaban diberi label: **⚙️ Rule-based**, **⚙️ Rule-based · ✨ kalimat dirapikan AI**, atau **✨ Mbah AI**.
 
@@ -145,11 +144,11 @@ File: `src/lib/nlp/translator.ts`. Hasil parse diterjemahkan menjadi **fungsi SQ
 
 | Tipe | Fungsi SQL |
 |---|---|
-| WETON | `primbon_weton($tanggal)` |
+| WETON | `primbon_profil(NULL, NULL, $tanggal)` |
 | NEPTU | `primbon_neptu($hari, $pasaran, $tanggal)` |
 | JODOH | `primbon_jodoh($hari1, $pasaran1, $tanggal1, $hari2, $pasaran2, $tanggal2)` |
 | KAPAN | `primbon_kapan($hari, $pasaran, $mulai, $selesai)` |
-| WATAK | `primbon_watak($hari, $pasaran, $tanggal)` |
+| WATAK | `primbon_profil($hari, $pasaran, $tanggal)` |
 
 Semuanya memakai fungsi bantu yang mengubah nama weton **atau** tanggal menjadi hari, pasaran, dan neptu:
 
@@ -198,6 +197,21 @@ Senin Legi (9) + Jumat Kliwon (14) = 23 → 23 mod 9 = 5 → Tinari
 Primbon adalah warisan budaya, bukan ramalan pasti.
 ```
 
+**Kartu weton** (tipe WETON dan WATAK). Contoh asli untuk "apa weton orang yang lahir tanggal 17 agustus 2003":
+
+```text
+Minggu Kliwon
+Orang yang lahir 17 Agustus 2003 memiliki weton Minggu Kliwon dengan neptu 13, dan lahir di wuku Medangkungan.
+Neptu: Minggu (5) + Kliwon (8) = 13
+
+HARI LAHIR         Minggu: Rajin, mandiri, dan punya wibawa.
+PASARAN            Kliwon: Pandai bicara, mudah akrab, ceria, dan bercita-cita tinggi. ...
+WETON (GABUNGAN)   Minggu Kliwon: Pendiam, berpendirian kuat, dan pandai bersosialisasi. ...
+WUKU KE-20 DARI 30 Medangkungan · dewa pelindung Batara Basuki: Tangguh, pekerja keras, dan setia. ...
+
+Arti istilah: Weton, Neptu, Wuku (dijelaskan dengan bahasa sehari-hari)
+```
+
 ## 8. Data primbon
 
 ### Neptu
@@ -229,7 +243,25 @@ Pasaran dari tanggal: acuan **17 Agustus 1945 = Jumat Legi**, `pasaran = urutan[
 
 Sumber: rentang angka dari [Bisnis.com](https://kabar24.bisnis.com/read/20241106/243/1813354/cara-hitung-weton-jawa-untuk-pernikahan-agar-jauh-dari-bala), arti dan tabel neptu dari [Pegadaian](https://pegadaian.co.id/artikel/inspirasi/hitungan-weton-jawa-untuk-pernikahan).
 
-### Watak
+### Wuku
+
+30 wuku × 7 hari = siklus 210 hari. Wuku Sinta dimulai **Minggu Pahing, 17 Desember 2000**:
+
+```sql
+CREATE FUNCTION wuku_dari(p_tanggal date) ... AS $$
+  SELECT w.urutan, w.nama, w.dewa, w.watak, w.sumber FROM wuku w
+  WHERE p_tanggal IS NOT NULL
+    AND w.urutan = MOD(MOD(p_tanggal - DATE '2000-12-17', 210) + 210, 210) / 7;
+$$
+```
+
+Acuan dicocokkan dengan tiga sumber: awal Sinta selalu Minggu Pahing, 5 Juli 2020 = awal Sinta ([kalenderku.id](https://kalenderku.id/blog/apa-itu-wuku-pawukon)), dan 28 Maret 2001 = Julungpujut ([ki-demang.com](https://ki-demang.com/almanak_jawa/weton-wuku/masehi/2001/maret/28)). Nama, dewa pelindung, dan watak 30 wuku diparafrasakan dari [detikJateng](https://www.detik.com/jateng/budaya/d-7940497/30-nama-wuku-dalam-kalender-jawa-beserta-arti-dan-cara-menghitungnya) (30 Mei 2025), merujuk *Horoskop Jawa* dan *Primbon Masa Kini*.
+
+### Watak hari dan pasaran
+
+Watak menurut hari lahir (7) dan pasaran (5) secara terpisah, diparafrasakan dari [ki-demang.com Almanak Jawa](https://ki-demang.com/almanak_jawa/weton-wuku/masehi/2001/maret/28) (bagian *Watak berdasarkan Weton*). Istilah lain di situs itu (padewan, padangon, sadwara, rakam, pancasuda) sengaja tidak dipakai: terlalu asing bagi orang awam, dan untuk pancasuda sumber-sumbernya saling bertentangan.
+
+### Watak weton
 
 35 watak, satu per weton, diparafrasakan dari [detikJateng](https://www.detik.com/jateng/budaya/d-8160116/35-weton-hari-lahir-dan-kepribadiannya-berdasarkan-primbon-jawa) (14 Okt 2025), yang merujuk *Primbon Praktis* (Mama Flo) dan dua buku kepribadian. Isi lengkapnya ada di `src/lib/nlp/data.ts` dan tabel `watak`.
 
@@ -238,14 +270,15 @@ Sumber: rentang angka dari [Bisnis.com](https://kabar24.bisnis.com/read/20241106
 ### Normalizer
 
 - Dipanggil **hanya** saat Parser gagal sintaks, maksimal satu kali per pertanyaan.
-- Diberi lima template kalimat baku, kosakata Scanner, tanggal hari ini (untuk "besok", "jumat depan"), dan kalimat baku terakhir (untuk "kalau sama rabu pon?").
-- Wajib membalas JSON: `{"jenis":"primbon","kalimat":"..."}`, `{"jenis":"tentang_project"}`, atau `{"jenis":"di_luar_topik"}`.
+- Diberi lima template kalimat baku, kosakata Scanner, tanggal hari ini (untuk "besok", "jumat depan"), kalimat baku terakhir (untuk "kalau sama rabu pon?"), dan empat pesan terakhir.
+- Wajib membalas JSON, hanya dua jenis: `{"jenis":"primbon","kalimat":"..."}` untuk permintaan hitungan baru yang datanya lengkap, atau `{"jenis":"obrolan"}` untuk semua yang lain. Jika ragu, pilih `obrolan`; JSON rusak juga dianggap `obrolan`.
 - Kalimat hasilnya diproses ulang oleh Scanner dan Parser. Jika tetap gagal, ditolak.
 
 ### Tanya Mbah
 
-- Menjawab pertanyaan tentang aplikasi dan konsep NLP-nya, dengan bekal ringkasan dokumen ini.
-- Dilarang menghitung weton; jika diminta, Mbah mengarahkan ke kalimat baku.
+- Teman ngobrol: sapaan, pertanyaan umum, budaya, **curhat** (empati, saran kecil, petuah Jawa beserta artinya; jika ada tanda bahaya, mengarahkan ke orang terdekat dan Layanan SEJIWA 119 ext. 8 atau 112), dan pertanyaan tentang aplikasi.
+- Bisa menjelaskan hasil primbon sebelumnya lebih rinci, karena riwayat (maks 20 pesan) membawa isi kartu weton. Angka dan nama tidak boleh diubah.
+- Dilarang menghitung weton sendiri; jika datanya belum lengkap, Mbah menanyakan tanggal lahir atau weton.
 
 ### Model dan kuota
 
@@ -258,6 +291,8 @@ Sumber: rentang angka dari [Bisnis.com](https://kabar24.bisnis.com/read/20241106
 
 - 17 Agustus 1945 → Jumat Legi; 17 Agustus 2003 → Minggu Kliwon; tanggal sebelum 1945.
 - Neptu Senin Legi = 9; jodoh Tinari, Ratu, Pesthi, dan Pegat (sisa 0 dan 1).
+- Wuku: 17 Desember 2000 dan 5 Juli 2020 → Sinta, 28 Maret 2001 → Julungpujut, 16 Desember 2000 → Watugunung.
+- Kartu weton: WETON memuat rincian hari, pasaran, weton, dan wuku; WATAK tanpa tanggal tidak memuat wuku.
 - KAPAN berikutnya, "hari ini", dan per bulan.
 - Sinonim dan format tanggal di Scanner.
 - Gagal semantik tidak diteruskan ke AI; kalimat informal gagal sintaks.

@@ -1,5 +1,19 @@
-import { JODOH, SUMBER_JODOH, SUMBER_WATAK, WATAK, neptuHari, neptuPasaran, type Hari, type Pasaran } from "./data.ts";
-import { banding, dariIso, iso, tambahHari, wetonDari } from "./kalender.ts";
+import {
+  JODOH,
+  SUMBER_JODOH,
+  SUMBER_WATAK,
+  SUMBER_WATAK_HARI_PASARAN,
+  SUMBER_WUKU,
+  WATAK,
+  WATAK_HARI,
+  WATAK_PASARAN,
+  WUKU,
+  neptuHari,
+  neptuPasaran,
+  type Hari,
+  type Pasaran,
+} from "./data.ts";
+import { banding, dariIso, iso, tambahHari, wetonDari, wukuDari } from "./kalender.ts";
 import type { Baris, JalankanRpc } from "./evaluator.ts";
 
 // Database tiruan untuk unit test: meniru fungsi primbon_* di Postgres dengan data dari data.ts.
@@ -13,13 +27,26 @@ function wetonDariArgs(h: string | null, p: string | null, t: string | null) {
 
 export const jalankanMemori: JalankanRpc = async (rpc, a) => {
   switch (rpc) {
-    case "primbon_weton":
-      return [wetonDariArgs(null, null, a.p_tanggal)];
     case "primbon_neptu":
       return [wetonDariArgs(a.p_hari, a.p_pasaran, a.p_tanggal)];
-    case "primbon_watak": {
+    case "primbon_profil": {
       const x = wetonDariArgs(a.p_hari, a.p_pasaran, a.p_tanggal);
-      return [{ hari: x.hari, pasaran: x.pasaran, neptu: x.neptu, deskripsi: WATAK[`${x.hari} ${x.pasaran}`], sumber: SUMBER_WATAK }];
+      const u = a.p_tanggal ? wukuDari(dariIso(a.p_tanggal)) : null;
+      return [
+        {
+          ...x,
+          watak_hari: WATAK_HARI[x.hari],
+          watak_pasaran: WATAK_PASARAN[x.pasaran],
+          watak_weton: WATAK[`${x.hari} ${x.pasaran}`],
+          wuku: u === null ? null : WUKU[u].nama,
+          wuku_ke: u === null ? null : u + 1,
+          dewa_wuku: u === null ? null : WUKU[u].dewa,
+          watak_wuku: u === null ? null : WUKU[u].watak,
+          sumber_hari_pasaran: SUMBER_WATAK_HARI_PASARAN,
+          sumber_weton: SUMBER_WATAK,
+          sumber_wuku: u === null ? null : SUMBER_WUKU,
+        },
+      ];
     }
     case "primbon_jodoh": {
       const x = wetonDariArgs(a.p_hari_1, a.p_pasaran_1, a.p_tanggal_1);
